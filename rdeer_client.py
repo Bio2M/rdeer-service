@@ -21,7 +21,7 @@ import lib.rdeer_common as stream
 __appname__   = "rdeer-client"
 __shortdesc__ = "Short description."
 __licence__   = "none"
-__version__   = "0.3.0"
+__version__   = "0.3.1"
 __author__    = "Benoit Guibert <benoit.guibert@free.fr>"
 
 
@@ -59,25 +59,33 @@ def ask_server(args):
                     'data': (f"ErrorConnection: unable to connect to {server} on port {port}"
                             " (server not responding on this port)."),
                     }
-        return
+        return received
     except socket.gaierror:
         received = {
                     'type': args['type'],
                     'status' : 'error',
                     'data': f"ErrorConnection: unable to connect to {server} on port {port} (might a name resolution issue).",
                     }
-        return
+        return received
     except ConnectionRefusedError:
         received = {
                     'type': args['type'],
                     'status' : 'error',
                     'data': f"Error: unable to connect to {server} on port {port} (might a port number issue).",
                     }
-        return
+        return received
 
     ### send request to rdeer-socket
     if args['type'] == 'query':
         args['query'] = args['query'].read()    # file must be picklable
+        ### query empty
+        if not args['query']:
+            received = {
+                    'type': args['type'],
+                    'status' : 'error',
+                    'data': "query is empty.",
+                    }
+            return received
     to_send = pickle.dumps(args)
     stream.send_msg(conn, to_send)
 

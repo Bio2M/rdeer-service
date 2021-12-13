@@ -51,7 +51,7 @@ import lib.rdeer_common as stream
 __appname__   = "rdeer-socket"
 __shortdesc__ = "Handle Reindeer in socket mode."
 __licence__   = "GPL3"
-__version__   = "0.3.0"
+__version__   = "1.0.0"
 __author__    = "Benoit Guibert <benoit.guibert@free.fr>"
 
 

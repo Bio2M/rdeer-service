@@ -19,9 +19,9 @@ import lib.rdeer_common as stream
 
 
 __appname__   = "rdeer-client"
-__shortdesc__ = "Short description."
-__licence__   = "none"
-__version__   = "0.3.1"
+__shortdesc__ = "Part of rdeer-server, companion tool of Reindeer"
+__licence__   = "GPL3"
+__version__   = "1.0.0"
 __author__    = "Benoit Guibert <benoit.guibert@free.fr>"
 
 
@@ -86,6 +86,7 @@ def ask_server(args):
                     'data': "query is empty.",
                     }
             return received
+    ### send to server, using lib/rdeer_common library
     to_send = pickle.dumps(args)
     stream.send_msg(conn, to_send)
 
@@ -99,6 +100,7 @@ def ask_server(args):
 
     ### some controls
     check_data(received)
+    received['version'] = __version__
 
     return received
 

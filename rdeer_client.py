@@ -21,7 +21,7 @@ import lib.rdeer_common as stream
 __appname__   = "rdeer-client"
 __shortdesc__ = "Part of rdeer-server, companion tool of Reindeer"
 __licence__   = "GPL3"
-__version__   = "1.0.0"
+__version__   = "1.0.1"
 __author__    = "Benoit Guibert <benoit.guibert@free.fr>"
 
 
@@ -77,7 +77,9 @@ def ask_server(args):
 
     ### send request to rdeer-socket
     if args['type'] == 'query':
-        args['query'] = args['query'].read()    # file must be picklable
+        ### when rdeer-client is used as a program, query is a string IO
+        if hasattr(args['query'], 'read'):
+            args['query'] = args['query'].read()
         ### query empty
         if not args['query']:
             received = {
@@ -86,12 +88,12 @@ def ask_server(args):
                     'data': "query is empty.",
                     }
             return received
-    ### send to server, using lib/rdeer_common library
+    ### send to rdeer-server, using lib/rdeer_common library
     to_send = pickle.dumps(args)
     stream.send_msg(conn, to_send)
 
 
-    ### received from rdeer-socket
+    ### received from rdeer-server
     received = stream.recv_msg(conn)
     received = pickle.loads(received)
 

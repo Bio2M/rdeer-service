@@ -51,7 +51,7 @@ import lib.rdeer_common as stream
 __appname__   = "rdeer-socket"
 __shortdesc__ = "Handle Reindeer in socket mode."
 __licence__   = "GPL3"
-__version__   = "1.0.0"
+__version__   = "1.0.1"
 __author__    = "Benoit Guibert <benoit.guibert@free.fr>"
 
 
@@ -61,6 +61,8 @@ INDEX_FILE         = "reindeer_matrix_eqc.gz"
 BASE_TMPFILES      = '/tmp'
 WATCHER_SLEEP_TIME = 8
 NORM               = 1000000000     # Normalisation factor
+### Allowed request types
+ALLOWED_TYPES = ['list', 'start', 'stop', 'query', 'check']
 ### Do not change (unless using another file)
 FOS                 = 'fos.txt'     # used to header and normalization
 ### do not change (unless Reindeer-socket is modified)
@@ -121,6 +123,12 @@ def run_server(args, rdeer):
             continue
 
         ### call rdeer method corresponding to the type of request
+        if received['type'] not in ALLOWED_TYPES:
+            msg = "Error: request type not handled (Maybe check version between rdeer-client and rdeer server)."
+            print(msg, file=sys.stderr)
+            stream.send_msg(client, msg.encode())
+            continue
+
         response = getattr(rdeer, received['type'])(received, addr)
 
         ## If Error message
@@ -366,7 +374,8 @@ class Rdeer:
                         if normalize and kmers_found:
                             counts[j] = round(NORM * counts[j] / int(kmers_found[j]),2)
                         elif normalize and not kmers_found:
-                            return(f"Error: unable to normalize counts, it could be that {FOS} does not contain counts.")
+                            response['status'] = 'error'
+                            return(f"unable to normalize counts on {index}, it could be that {FOS} does not contain counts.")
                         counts[j] = str(counts[j])
                     else:
                         counts[j] = '0'

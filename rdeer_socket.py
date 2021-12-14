@@ -287,7 +287,9 @@ class Rdeer:
                 # ~ stream.send_msg(self.sockets[index], mesg)
                 # ~ recv = stream.recv_msg(self.sockets[index])
                 self.sockets[index].send(mesg)
+                self.sockets[index].settimeout(10)
                 recv = self.sockets[index].recv(1024)
+                self.sockets[index].settimeout(None)
                 recv = recv.decode().rstrip('\n')
                 print(f"RECV: {recv} --- CONTROL: {control}")
                 if recv.startswith(control):

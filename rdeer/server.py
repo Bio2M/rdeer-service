@@ -44,15 +44,10 @@ import signal
 import subprocess
 import time
 from datetime import datetime
-import lib.rdeer_common as stream
 
+import common as stream
+import info
 
-
-__appname__   = "rdeer-socket"
-__shortdesc__ = "Handle Reindeer in socket mode."
-__licence__   = "GPL3"
-__version__   = "1.0.1"
-__author__    = "Benoit Guibert <benoit.guibert@free.fr>"
 
 
 DEFAULT_PORT       = 12800
@@ -72,6 +67,7 @@ class RDSock_Mesg:
     QUERY = 'DONE'
     QUIT  = 'See you soon'
 
+timestamp = lambda: datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 
 def main():
     try:
@@ -87,6 +83,8 @@ def main():
         for index, values in rdeer.indexes.items():
             if values['status'] == 'running':
                 getattr(rdeer, 'stop')({'index':index})
+        sys.exit(f"{timestamp()}: Server {socket.gethostname()!r} interrupted by ctrl C.")
+
 
 
 def run_server(args, rdeer):
@@ -408,7 +406,7 @@ def usage():
                        )
     parser.add_argument('-v', '--version',
                         action='version',
-                        version=f"{parser.prog} v{__version__}",
+                        version=f"{parser.prog} v{info.VERSION}",
                        )
     parser.add_argument('--help',
                         action='help',
@@ -431,10 +429,4 @@ def _dir_path(string):
 
 
 if __name__ == "__main__":
-    timestamp = lambda: datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-    try:
-        main()
-    except KeyboardInterrupt:
-        # ~ print(locals())
-        # ~ print(getattr(rdeer, 'sockets'))
-        sys.exit(f"{timestamp()}: Server {socket.gethostname()!r} interrupted by ctrl C.")
+    main()

@@ -14,19 +14,15 @@ import argparse
 import socket
 import pickle
 
-sys.path.append(os.path.dirname(os.path.realpath(__file__)))
-import lib.rdeer_common as stream
+# sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+import info
+import common as stream
 
 
-__appname__   = "rdeer-client"
-__shortdesc__ = "Part of rdeer-server, companion tool of Reindeer"
-__licence__   = "GPL3"
-__version__   = "1.0.1"
-__author__    = "Benoit Guibert <benoit.guibert@free.fr>"
 
-
-def main(args):
+def main():
     """ Function doc """
+    args = usage()
     # ~ print(f"SENT to {args.server}:{vars(args)}")
     received = ask_server(vars(args))
     # ~ print(f"RECEIVED from {args.server}: {received}")
@@ -102,7 +98,7 @@ def ask_server(args):
 
     ### some controls
     check_data(received)
-    received['version'] = __version__
+    received['version'] = info.VERSION
 
     return received
 
@@ -156,7 +152,7 @@ class Client:
 
 
     def start(self):
-        print(f"{args.index} is now {self.received['data']['status']}")
+        print(f"{self.args.index} is now {self.received['data']['status']}")
 
 
     def stop(self):
@@ -205,7 +201,7 @@ def usage():
     https://docs.python.org/3/howto/argparse.html?highlight=argparse
     """
     # build parser
-    parser = argparse.ArgumentParser(prog=__appname__)
+    parser = argparse.ArgumentParser(prog=info.APPNAME)
     global_parser = argparse.ArgumentParser(add_help=False)
     index_parser = argparse.ArgumentParser(add_help=False)
     subparsers = parser.add_subparsers()
@@ -280,7 +276,7 @@ def usage():
     # arguments with special action
     parser.add_argument('-v', '--version',
                         action='version',
-                        version=f"{parser.prog} v{__version__}",
+                        version=f"{parser.prog} v{info.VERSION}",
                        )
 
 
@@ -292,5 +288,4 @@ def usage():
 
 
 if __name__ == "__main__":
-    args = usage()
-    main(args)
+    main()

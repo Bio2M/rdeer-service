@@ -5,3 +5,14 @@ rdeer-service is a tool to facilitate the use of [Reindeer](https://github.com/k
 It also summarize its outputs.
 
 It is a companion to Transipedia, a web application to query easily and fastly Reindeer.
+
+## Installation
+
+**Recommanded**
+
+```
+python3 -m pip install rdeer-service
+```
+
+**Other**
+

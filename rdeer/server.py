@@ -1,22 +1,15 @@
 #!/usr/bin/env python3
 
-'''
-TODO
-- Basculer la fonction check_data() du client au serveur
-- lorsqu'un index ne charge pas, il reste continuellement en mode 'loading' --> faire un thread de vérif ??? --> avec un 'error' pour la commande 'list' ???
-- faire une politique de permissions (pour start/stop)???
-- finir : supprimer les messages inutiles (à faire après transipedia ?)
-'''
 
 '''
 rdeer-socket is the server part of rdeer-service.
 It handle Reindeer running in socket mode.
 
-au lancement
-- rdeer-server se met en écoute
-- une instance de Rdeer est créée
-    - lance un thread qui scanne le répertoire racine des index
-    - elle reçoit les requêtes de clients
+at start up
+- rdeer-server listening for the client
+- An instance of Rdeer is created
+    - launch a thread scanning the root directory of indexes
+    - received clients requests
 
 
 Démarrage d'un socket Reindeer
@@ -44,6 +37,7 @@ import signal
 import subprocess
 import time
 from datetime import datetime
+from functools import partial
 
 import common as stream
 import info
@@ -69,22 +63,31 @@ class RDSock_Mesg:
 
 timestamp = lambda: datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 
+
 def main():
-    try:
-        args = usage()
-        ### Localize full path or index directory (verify if rdeer-socket is a symlink)
-        args.index_dir = os.path.join(os.getcwd(), args.index_dir.rstrip('/'))
-        ### object rdeer manipulate indexes (list, start stop, query, check)
-        rdeer = Rdeer(args)
-        ### server listen for clients
-        run_server(args, rdeer)
-    ### TO DELETE when Reindeer-socket will stop properly when the client is broken
-    except KeyboardInterrupt:
+    args = usage()
+
+    ### Localize full path or index directory (verify if rdeer-socket is a symlink)
+    args.index_dir = os.path.join(os.getcwd(), args.index_dir.rstrip('/'))
+
+    ### object rdeer manipulate indexes (list, start stop, query, check)
+    rdeer = Rdeer(args)
+
+    ### Stops running indexes on exit (Ctrl C, kill -15)
+    global exit_gracefully
+    exit_gracefully = partial(exit_gracefully, rdeer=rdeer)
+    signal.signal(signal.SIGINT, exit_gracefully)
+    signal.signal(signal.SIGTERM, exit_gracefully)
+
+    ### server listen for clients
+    run_server(args, rdeer)
+
+
+def exit_gracefully(signal, frame, rdeer):
         for index, values in rdeer.indexes.items():
             if values['status'] == 'running':
                 getattr(rdeer, 'stop')({'index':index})
-        sys.exit(f"{timestamp()}: Server {socket.gethostname()!r} interrupted by ctrl C.")
-
+        sys.exit(f"{timestamp()}: Server {socket.gethostname()!r} interrupted by signal {signal}.")
 
 
 def run_server(args, rdeer):

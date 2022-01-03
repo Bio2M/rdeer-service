@@ -30,7 +30,7 @@ git clone https://github.com/Bio2M/rdeer-service.git
 
 ### Start the server
 
-the server must be in the same server than Reindeer, You can have multiple servers with Reindeer.  Each of them must be have the server.
+the server must be in the same physical server than Reindeer, You can have multiple servers with Reindeer.  Each of them must have the server.
 
 ```
 rdeer-server /path/to/indexes
@@ -48,9 +48,9 @@ rdeer-server /path/to/indexes
 The client could requests remote rdeer-server servers. You can enterely manage yours Reindeer indexes with subcommand:
 
 * ``list`` to show all indexes with their status
-* ``start \<index-name\>`` to start a index (the index name is the directory hosting the index files)
-* `stop \<index-name\>` to stop a index
-* `check \<index-name\>` to verify if index responding
+* ``start <index-name>`` to start a index (the index name is the directory hosting the index files)
+* `stop <index-name>` to stop a index
+* `check <index-name>` to verify if index responding
 
 **show all indexes:**
 

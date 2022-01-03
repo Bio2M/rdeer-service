@@ -74,10 +74,9 @@ def main():
     rdeer = Rdeer(args)
 
     ### Stops running indexes on exit (Ctrl C, kill -15)
-    global exit_gracefully
-    exit_gracefully = partial(exit_gracefully, rdeer=rdeer)
-    signal.signal(signal.SIGINT, exit_gracefully)
-    signal.signal(signal.SIGTERM, exit_gracefully)
+    exit_graceful = partial(exit_gracefully, rdeer=rdeer)
+    signal.signal(signal.SIGINT, exit_graceful)
+    signal.signal(signal.SIGTERM, exit_graceful)
 
     ### server listen for clients
     run_server(args, rdeer)

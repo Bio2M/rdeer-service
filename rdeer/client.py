@@ -148,7 +148,7 @@ class Client:
         AVAILCOL = '\033[1;34m'           # blue
         color_status = { 'available': AVAILCOL, 'running' : RUNCOL, 'loading': LOADCOL }
         gap = max([len(index) for index in self.received['data']])
-        print('\n'.join([ f"{k.ljust(gap)}  [{color_status[v['status']]}{v['status'].center(9)}{color.END}]" for k,v in self.received['data'].items()]))
+        print('\n'.join([ f"{k.ljust(gap)}  [{color_status[v['status']]}{v['status'].center(9)}{color.END}]" for k,v in sorted(self.received['data'].items(), key=lambda v: (v[0].casefold()))]))
 
 
     def start(self):

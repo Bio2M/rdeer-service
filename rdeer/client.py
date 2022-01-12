@@ -143,14 +143,16 @@ class Client:
 
     def list(self):
         """Return the list of indexes"""
-        LOADCOL  = "\033[1m\033[5;36m"    # blinking and bold cyan
-        RUNCOL   ='\033[1;32m'            # green
-        AVAILCOL = '\033[1;34m'           # blue
-        ERRORCOL = '\033[1;31m'           # red
-        color_status = { 'available': AVAILCOL, 'running' : RUNCOL, 'loading': LOADCOL, 'error': ERRORCOL }
-        gap = max([len(index) for index in self.received['data']])
-        print('\n'.join([ f"{k.ljust(gap)}  [{color_status[v['status']]}{v['status'].center(9)}{color.END}]" for k,v in sorted(self.received['data'].items(), key=lambda v: (v[0].casefold()))]))
-
+        if self.args.all:
+            LOADCOL  = "\033[1m\033[5;36m"    # blinking and bold cyan
+            RUNCOL   ='\033[1;32m'            # green
+            AVAILCOL = '\033[1;34m'           # blue
+            ERRORCOL = '\033[1;31m'           # red
+            color_status = { 'available': AVAILCOL, 'running' : RUNCOL, 'loading': LOADCOL, 'error': ERRORCOL }
+            gap = max([len(index) for index in self.received['data']])
+            print('\n'.join([ f"{k.ljust(gap)}  [{color_status[v['status']]}{v['status'].center(9)}{color.END}]" for k,v in sorted(self.received['data'].items(), key=lambda v: (v[0].casefold()))]))
+        else:
+            print('\n'.join([k for k,v in sorted(self.received['data'].items()) if v['status'] == 'running']))
 
     def start(self):
         print(f"{self.args.index} is now {self.received['data']['status']}")
@@ -232,6 +234,10 @@ def usage():
                         parents = [global_parser],
                         help="List all running index",
                         )
+    parser_list.add_argument('-a', '--all',
+                        action="store_true",
+                        help="show all indexes and their status, instead of running indexes only",
+                       )
     # create subparser for the "query" command
     parser_query = subparsers.add_parser("query",
                         # ~ aliases=['qu'],
@@ -244,7 +250,6 @@ def usage():
                         help="QUERY: query file as fasta format",
                         )
     parser_query.add_argument('-o', '--outfile',
-                        # ~ required=True,
                         help="OUTFILE: outfile name",
                         )
     parser_query.add_argument('-t', '--threshold',

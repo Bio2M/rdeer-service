@@ -67,7 +67,7 @@ def ask_server(args):
         received = {
                     'type': args['type'],
                     'status' : 'error',
-                    'data': f"Error: unable to connect to {server} on port {port} (might a port number issue).",
+                    'data': f"Error: unable to connect to {server!r} on port {port}.",
                     }
         return received
 
@@ -146,7 +146,8 @@ class Client:
         LOADCOL  = "\033[1m\033[5;36m"    # blinking and bold cyan
         RUNCOL   ='\033[1;32m'            # green
         AVAILCOL = '\033[1;34m'           # blue
-        color_status = { 'available': AVAILCOL, 'running' : RUNCOL, 'loading': LOADCOL }
+        ERRORCOL = '\033[1;31m'           # red
+        color_status = { 'available': AVAILCOL, 'running' : RUNCOL, 'loading': LOADCOL, 'error': ERRORCOL }
         gap = max([len(index) for index in self.received['data']])
         print('\n'.join([ f"{k.ljust(gap)}  [{color_status[v['status']]}{v['status'].center(9)}{color.END}]" for k,v in sorted(self.received['data'].items(), key=lambda v: (v[0].casefold()))]))
 
@@ -178,7 +179,7 @@ class Client:
 
     def error(self):
         """ Function doc """
-        print(f"Error: {self.received['data']}")
+        print(self.received['data'])
 
 
 

@@ -12,8 +12,8 @@ at start up
     - received clients requests
 
 
-Démarrage d'un socket Reindeer
-- lors d'un start d'un index :
+Starting a Reindeer socket
+- When index starting:
     - lance un Reindeer query sur un port réseau distinct avec subprocess.Popen()
     - ajoute dans un dictionnaire dict['nom de l'index'] = {'status': 'loading', 'port': 'n°'}
     - qui scanne toute les secondes si le port réseau est ouvert
@@ -32,6 +32,7 @@ import argparse
 import threading
 import pickle
 import shutil
+# ~ import psutil
 import tempfile
 import signal
 import subprocess
@@ -218,18 +219,21 @@ class Rdeer:
         if not index in self.indexes:
             print(f"{timestamp()} Error: unable to start index {index} from {addr[0]} (not found).", file=sys.stdout)
             return {'type':'start', 'status':'error', 'data':f'index {index} not found'}
-        if not self.indexes[index]['status'] == 'available':
-            print(f"{timestamp()} Error: unable to start index {index} from {addr[0]} (not available).", file=sys.stdout)
-            return {'type':'start', 'status':'error', 'data':f'index {index} still running'}
-        # ~ ....
+        if self.indexes[index]['status'] in ['running', 'loading']:
+            print(f"{timestamp()} Error: unable to start index {index} from {addr[0]} (still running or loading).", file=sys.stdout)
+            return {'type':'start', 'status':'error', 'data':f'index {index} still running or loading'}
         ### pick free port number
         sock = socket.socket()
         sock.bind(('', 0))
         port = sock.getsockname()[1]
         ### Launch new instance of Reindeer
-        cmd = f'{REINDEER} --query -l {os.path.join(self.args.index_dir, index)} -q {port} &'
+        if 'disk-query' in os.listdir(os.path.join(self.args.index_dir, index)):
+            cmd = f'{REINDEER} --query -l {os.path.join(self.args.index_dir, index)} -q {port} --disk-query &'
+        else :
+            cmd = f'{REINDEER} --query -l {os.path.join(self.args.index_dir, index)} -q {port} &'
         try:
             subprocess.check_call(cmd, shell=True)
+            # ~ proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
         except subprocess.CalledProcessError:
             msg = f"Error: index {index} could not be loaded"
             return {'type': received['type'], 'status':'error', 'data': msg}
@@ -312,6 +316,16 @@ class Rdeer:
 
     def _connect_index(self, index, port):
         """ Function doc """
+
+        ### check if Reindeer process reunning, otherwise, probably it is crashed
+        cmd = f'Reindeer-socket --query -l {os.path.join(self.args.index_dir, index)} -q *{port}'
+        proc = subprocess.run(f"ps -ef | grep '{cmd}'", shell=True, stdout=subprocess.PIPE)
+        # ~ print('ARGS:', proc.args)
+        if proc.returncode:
+            print(f'error: index {index} crashed during loading')
+            self.indexes[index]['status'] = 'error'
+
+        ### try to connect
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # ~ print(f'TRY TO CONNECT TO {index} on port {port}')
         try:
@@ -327,10 +341,11 @@ class Rdeer:
             print(f"SECOND MESG: {index}")
             s.settimeout(None)
         except ConnectionRefusedError:
-            ### try s.connect(('', int(port))) to connect during loading time
+            ### try to connect during loading time  (with s.connect(('', int(port)))
             pass
         except OSError:
-            print(f"Error: port already in use ({port})")
+            ### try to connect during loading time  (with s.connect(('', int(port)))
+            pass
 
 
     def _out_to_tsv(self, received, response):

@@ -199,7 +199,7 @@ class Rdeer:
             for index, value in self.indexes.items():
                 # ~ print(f"CHECK {index} (value: {value['status']})")
                 if value['status'] == 'loading':
-                    print(f"{index} IS MARKED AS 'loading' --> CHECK IF RUNNING")
+                    # ~ print(f"{index} IS MARKED AS 'loading' --> CHECK IF RUNNING")
                     self._connect_index(index, value['port'])
 
             time.sleep(WATCHER_SLEEP_TIME)
@@ -221,7 +221,7 @@ class Rdeer:
             return {'type':'start', 'status':'error', 'data':f'index {index} not found'}
         if self.indexes[index]['status'] in ['running', 'loading']:
             print(f"{timestamp()} Error: unable to start index {index} from {addr[0]} (still running or loading).", file=sys.stdout)
-            return {'type':'start', 'status':'error', 'data':f'index {index} still running or loading'}
+            return {'type':'start', 'status':'error', 'data':f'index {index} still running or loading.'}
         ### pick free port number
         sock = socket.socket()
         sock.bind(('', 0))
@@ -265,6 +265,7 @@ class Rdeer:
         tmp_dir = tempfile.mkdtemp(prefix="rdeer-", dir=BASE_TMPFILES)
         infile = os.path.join(tmp_dir, 'query.fa')
         outfile = os.path.join(tmp_dir, 'reindeer.out')
+        ### create query fasta file
         with open(infile, 'w') as fh:
             fh.write(received['query'])
         ### build query
@@ -296,12 +297,15 @@ class Rdeer:
         print(f"MESG SEND TO REINDEER: {mesg} (index {index!r}).")
         if index in self.indexes:
             if self.indexes[index]['status'] == 'running':
-                # ~ stream.send_msg(self.sockets[index], mesg)
-                # ~ recv = stream.recv_msg(self.sockets[index])
-                self.sockets[index].send(mesg)
-                self.sockets[index].settimeout(10)
-                recv = self.sockets[index].recv(1024)
-                self.sockets[index].settimeout(None)
+                try:
+                    self.sockets[index].send(mesg)
+                    # ~ self.sockets[index].settimeout(300)
+                    recv = self.sockets[index].recv(1024)
+                    # ~ self.sockets[index].settimeout(None)
+                except:
+                    if self._index_is_crashed(index):
+                        print(f"{timestamp()} Error: the index {index!r} crashed during a query", file=sys.stdout)
+                    return {'status':'error','data':f'Unable to query the {index!r} index.'}
                 recv = recv.decode().rstrip('\n')
                 print(f"RECV: {recv} --- CONTROL: {control}")
                 if recv.startswith(control):
@@ -314,16 +318,29 @@ class Rdeer:
             return {'status':'error','data':f'Index {index!r} not found'}
 
 
+    def _index_is_crashed(self, index):
+        ### check if Reindeer process running, otherwise, probably it is crashed
+        port = self.indexes[index]['port']
+        cmd = f'Reindeer-socket --query -l {os.path.join(self.args.index_dir, index)} -q *{port}'
+        proc = subprocess.run(f"ps -ef | grep '{cmd}'", shell=True, stdout=subprocess.PIPE)
+        if proc.returncode:
+            self.indexes[index]['status'] = 'error'
+            return True
+        return False
+
+
     def _connect_index(self, index, port):
         """ Function doc """
 
-        ### check if Reindeer process reunning, otherwise, probably it is crashed
-        cmd = f'Reindeer-socket --query -l {os.path.join(self.args.index_dir, index)} -q *{port}'
-        proc = subprocess.run(f"ps -ef | grep '{cmd}'", shell=True, stdout=subprocess.PIPE)
-        # ~ print('ARGS:', proc.args)
-        if proc.returncode:
-            print(f'error: index {index} crashed during loading')
-            self.indexes[index]['status'] = 'error'
+        if self._index_is_crashed(index):
+            print(f'{timestamp()} Error: index {index} crashed during loading', file=sys.stdout)
+
+        ### check if Reindeer process running, otherwise, probably it is crashed
+        # ~ cmd = f'Reindeer-socket --query -l {os.path.join(self.args.index_dir, index)} -q *{port}'
+        # ~ proc = subprocess.run(f"ps -ef | grep '{cmd}'", shell=True, stdout=subprocess.PIPE)
+        # ~ if proc.returncode:
+            # ~ print(f'error: index {index} crashed during loading')
+
 
         ### try to connect
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -368,7 +385,7 @@ class Rdeer:
                     samples.append(sample)
                 header = header + '\t'.join(samples)
         except FileNotFoundError:
-            return f"Error: file {FOS} not found on {socket.gethostname()}:{os.path.join(args.indexes_path, index)} location."
+            return f"Error: file {FOS} not found on {socket.gethostname()}:{os.path.join(self.args.index_dir, index)} location."
         header += '\n'       # Add newline at EOL
         ### open Reindeer outfile
         outfile = response['data'].split(':')[1]

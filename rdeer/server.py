@@ -299,7 +299,7 @@ class Rdeer:
             if self.indexes[index]['status'] == 'running':
                 try:
                     self.sockets[index].send(mesg)
-                    # ~ self.sockets[index].settimeout(300)
+                    self.sockets[index].settimeout(None)
                     recv = self.sockets[index].recv(1024)
                     # ~ self.sockets[index].settimeout(None)
                 except:

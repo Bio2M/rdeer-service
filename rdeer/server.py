@@ -110,7 +110,7 @@ def run_server(args, rdeer):
             received = stream.recv_msg(client)
             received = pickle.loads(received)
             print(f"{timestamp()} client:{addr[0]} type:{received['type']}", file=sys.stdout)
-            # ~ print(f"RECEIVED FROM CLT: {repr(received)} (debug)")
+            print(f"RECEIVED FROM CLT: {repr(received)} (debug)")
         except pickle.UnpicklingError:
             stream.send_msg(client, b"Error: data sent too big.")
             continue
@@ -375,8 +375,10 @@ class Rdeer:
         normalize = received['normalize']
         samples = []
         kmers_found = []
+
         ### Add header to data from FOS file (File of Samples)
         header = 'seq_name\t'
+        data = []
         try:
             with open(os.path.join(self.args.index_dir, index, FOS)) as fh:
                 for line in fh:
@@ -387,32 +389,37 @@ class Rdeer:
         except FileNotFoundError:
             return f"Error: file {FOS} not found on {socket.gethostname()}:{os.path.join(self.args.index_dir, index)} location."
         header += '\n'       # Add newline at EOL
+
         ### open Reindeer outfile
         outfile = response['data'].split(':')[1]
-        with open(outfile) as fh:
-            outdata = fh.read()
-        ### Reduce complex values of Reindeer output to single count
-        data = []
-        ### open Reindeer output file
-        with open(outfile) as fh:
-            for line in fh:  # i --> sequence
-                seq_name, *counts = line.rstrip('\n').lstrip('>').split('\t')
-                for j,count in enumerate(counts):           # j --> sample/count
-                    if count != '*':
-                        counts[j] = [c.split(':')[1] for c in count.split(",")]
-                        ### average of untigs counts - but stars  ('*') must be removed
-                        counts[j] = sum([int(c) for c in counts[j] if c != '*']) // len(counts[j])
-                        ### NORMALIZE if kmers counts are present in file of samples (fos.txt)
-                        if normalize and kmers_found:
-                            counts[j] = round(NORM * counts[j] / int(kmers_found[j]),2)
-                        elif normalize and not kmers_found:
-                            response['status'] = 'error'
-                            return(f"unable to normalize counts on {index}, it could be that {FOS} does not contain counts.")
-                        counts[j] = str(counts[j])
-                    else:
-                        counts[j] = '0'
-                data.append(seq_name + '\t' + '\t'.join(counts))
-        data = '\n'.join(data) + '\n'
+
+        ### if unitig_counts option is set, the output of Reindeer is requered, not TSV file
+        if "unitig_counts" in received and received["unitig_counts"]:
+            with open(outfile) as fh:
+                for line in fh:
+                    data.append(line[1:])
+            data = ''.join(data)
+        else:
+            ### Reduce complex values of Reindeer output to single count
+            with open(outfile) as fh:
+                for line in fh:  # i --> sequence
+                    seq_name, *counts = line.rstrip('\n').lstrip('>').split('\t')
+                    for j,count in enumerate(counts):           # j --> sample/count
+                        if count != '*':
+                            counts[j] = [c.split(':')[1] for c in count.split(",")]
+                            ### average of untigs counts - but stars  ('*') must be removed
+                            counts[j] = sum([int(c) for c in counts[j] if c != '*']) // len(counts[j])
+                            ### NORMALIZE if kmers counts are present in file of samples (fos.txt)
+                            if normalize and kmers_found:
+                                counts[j] = round(NORM * counts[j] / int(kmers_found[j]),2)
+                            elif normalize and not kmers_found:
+                                response['status'] = 'error'
+                                return(f"unable to normalize counts on {index}, it could be that {FOS} does not contain counts.")
+                            counts[j] = str(counts[j])
+                        else:
+                            counts[j] = '0'
+                    data.append(seq_name + '\t' + '\t'.join(counts))
+            data = '\n'.join(data) + '\n'
 
         ### join header and counts
         data = header + data

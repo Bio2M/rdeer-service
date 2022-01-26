@@ -259,6 +259,10 @@ def usage():
                         action="store_true",
                         help="Normalize results, fos.txt must contains counts (see fos_buider.py command)",
                        )
+    parser_query.add_argument('-u', '--unitig-counts',
+                        action="store_true",
+                        help="output Reindeer results, not single count per sample/sequence",
+                       )
     # create subparser for the "check" command
     parser_check = subparsers.add_parser("check",
                         # ~ aliases=['ch'],

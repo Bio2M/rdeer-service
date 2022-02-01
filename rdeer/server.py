@@ -110,7 +110,7 @@ def run_server(args, rdeer):
             received = stream.recv_msg(client)
             received = pickle.loads(received)
             print(f"{timestamp()} client:{addr[0]} type:{received['type']}", file=sys.stdout)
-            print(f"RECEIVED FROM CLT: {repr(received)} (debug)")
+            # ~ print(f"RECEIVED FROM CLT: {repr(received)} (debug)")
         except pickle.UnpicklingError:
             stream.send_msg(client, b"Error: data sent too big.")
             continue

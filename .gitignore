@@ -7,4 +7,5 @@ build/
 
 # other
 *.backup
+output*/
 test/

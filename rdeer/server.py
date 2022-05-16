@@ -109,8 +109,12 @@ def run_server(args, rdeer):
         try:
             received = stream.recv_msg(client)
             received = pickle.loads(received)
-            print(f"{timestamp()} client:{addr[0]} type:{received['type']}", file=sys.stdout)
-            # ~ print(f"RECEIVED FROM CLT: {repr(received)} (debug)")
+            ### loggin request
+            user = received['user'] if 'user' in received else 'unknown'
+            if 'index' in received:
+                print(f"{timestamp()} client:{addr[0]} type:{received['type']} user:{user} index:{received['index']}", file=sys.stdout)
+            else:
+                print(f"{timestamp()} client:{addr[0]} type:{received['type']} user:{user}", file=sys.stdout)
         except pickle.UnpicklingError:
             stream.send_msg(client, b"Error: data sent too big.")
             continue
@@ -280,7 +284,7 @@ class Rdeer:
             ### response to return to client
             return {'type':'query', 'status':response['status'], 'data':data}
         else:
-            return {'type':'query', 'status':'error','data':response['data']}
+            return {'type':'query', 'status':'error', 'data':response['data']}
 
 
     def check(self, received, addr=None):
@@ -294,7 +298,7 @@ class Rdeer:
 
     def _ask_index(self, index, mesg, control):
         """ Function doc """
-        print(f"MESG SEND TO REINDEER: {mesg} (index {index!r}).")
+        # ~ print(f"MESG SEND TO REINDEER: {mesg} (index {index!r}).")
         if index in self.indexes:
             if self.indexes[index]['status'] == 'running':
                 try:
@@ -307,7 +311,7 @@ class Rdeer:
                         print(f"{timestamp()} Error: the index {index!r} crashed during a query", file=sys.stdout)
                     return {'status':'error','data':f'Unable to query the {index!r} index.'}
                 recv = recv.decode().rstrip('\n')
-                print(f"RECV: {recv} --- CONTROL: {control}")
+                # ~ print(f"RECV: {recv} --- CONTROL: {control}")
                 if recv.startswith(control):
                     return {'status':'success','data':recv}
                 else:
@@ -370,7 +374,6 @@ class Rdeer:
         1. reduce counts to one number value,
         2. normalize counts (if asked by client)
         """
-        print('_OUT_TO_TSV BEGIN')
         index = received['index']
         normalize = received['normalize']
         samples = []
@@ -411,7 +414,14 @@ class Rdeer:
                             counts[j] = sum([int(c) for c in counts[j] if c != '*']) // len(counts[j])
                             ### NORMALIZE if kmers counts are present in file of samples (fos.txt)
                             if normalize and kmers_found:
-                                counts[j] = round(NORM * counts[j] / int(kmers_found[j]),2)
+                                try:
+                                    counts[j] = round(NORM * counts[j] / int(kmers_found[j]),2)
+                                except ValueError:
+                                    self.indexes[index]['status'] = 'error'
+                                    response['status'] = 'error'
+                                    msg = f"File {FOS!r} malformed (index: {index})."
+                                    print(f"{timestamp()} Error: {msg}", file=sys.stdout)
+                                    return msg
                             elif normalize and not kmers_found:
                                 response['status'] = 'error'
                                 return(f"unable to normalize counts on {index}, it could be that {FOS} does not contain counts.")

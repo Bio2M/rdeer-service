@@ -71,7 +71,7 @@ def ask_server(args):
                     }
         return received
 
-    ### send request to rdeer-socket
+    ### send request to rdeer-server
     if args['type'] == 'query':
         ### when rdeer-client is used as a program, query is a string IO
         if hasattr(args['query'], 'read'):
@@ -203,14 +203,19 @@ def usage():
     Help function with argument parser.
     https://docs.python.org/3/howto/argparse.html?highlight=argparse
     """
-    # build parser
+    ### build parser
     parser = argparse.ArgumentParser(prog=info.APPNAME)
     global_parser = argparse.ArgumentParser(add_help=False)
     index_parser = argparse.ArgumentParser(add_help=False)
     subparsers = parser.add_subparsers()
     subparsers.dest = 'type'
     subparsers.required = True
-    # Global arguments
+    ### Hidden argument to send login name in requests
+    parser.add_argument('--user',
+                        default=os.getlogin(),
+                        help=argparse.SUPPRESS,
+                        )
+    # arguments for all subcommand
     global_parser.add_argument("-s", "--server",
                         help="SRV: server who hosting index (default localhost)",
                         metavar="SRV",

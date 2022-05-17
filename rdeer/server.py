@@ -284,6 +284,7 @@ class Rdeer:
             ### response to return to client
             return {'type':'query', 'status':response['status'], 'data':data}
         else:
+            shutil.rmtree(tmp_dir, ignore_errors=True)  # delete tempory files
             return {'type':'query', 'status':'error', 'data':response['data']}
 
 
@@ -357,9 +358,9 @@ class Rdeer:
             self.sockets[index] = s
             ### evacuate WELCOME and INDEX message
             welcome = s.recv(1024)
-            print(f"FIRST MESG: {welcome}")
+            # ~ print(f"FIRST MESG: {welcome}")
             index = s.recv(1024)
-            print(f"SECOND MESG: {index}")
+            # ~ print(f"SECOND MESG: {index}")
             s.settimeout(None)
         except ConnectionRefusedError:
             ### try to connect during loading time  (with s.connect(('', int(port)))

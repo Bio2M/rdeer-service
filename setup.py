@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-# -*- coding:utf8 -*-
+
 
 import setuptools
 from rdeer import info
+
 
 setuptools.setup(
     name = 'rdeer-service',
@@ -25,6 +26,7 @@ setuptools.setup(
     entry_points = {
         'console_scripts': [
             'rdeer-client = rdeer.client:main',
+            'rdeer = rdeer.client:main',
             'rdeer-server = rdeer.server:main',
         ],
     },

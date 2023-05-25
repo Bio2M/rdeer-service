@@ -14,14 +14,14 @@ at start up
 
 Starting a Reindeer socket
 - When index starting:
-    - lance un Reindeer query sur un port réseau distinct avec subprocess.Popen()
-    - ajoute dans un dictionnaire dict['nom de l'index'] = {'status': 'loading', 'port': 'n°'}
-    - qui scanne toute les secondes si le port réseau est ouvert
-    - lorsque le port réseau est ouvert
-        - se connecter en client sur l'index Reindeer
-            - vérifier si l'index fonctionne
-            - modifier l'entrée du dictionnaire dict['nom de l'index'] = {'status': 'running', 'port': 'n°'}
-            - rester en attente
+    - launch Reindeer query in waiting mode on specified port (default: 12800) using subprocess.Popen()
+    - add in a dictionnary dict['nom de l'index'] = {'status': 'loading', 'port': 'n°'}
+    - scan each second if port is open
+    - when port is open
+        - connect as client on the Reindeer index
+            - check running index
+            - update dictionnary entry dict['index name'] = {'status': 'running', 'port': 'n°'}
+            - wait to query from rdeer-client
 '''
 
 import os
@@ -346,14 +346,11 @@ class Rdeer:
         # ~ if proc.returncode:
             # ~ print(f'error: index {index} crashed during loading')
 
-
         ### try to connect
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # ~ print(f'TRY TO CONNECT TO {index} on port {port}')
         try:
             s.settimeout(1)
             s.connect(('', int(port)))    # Connect to running Reindeer
-            # ~ s.settimeout(None)
             self.indexes[index]['status'] = 'running'
             self.sockets[index] = s
             ### evacuate WELCOME and INDEX message
@@ -415,6 +412,11 @@ class Rdeer:
                             counts[j] = sum([int(c) for c in counts[j] if c != '*']) // len(counts[j])
                             ### NORMALIZE if kmers counts are present in file of samples (fos.txt)
                             if normalize and kmers_found:
+                                if len(counts) != len(kmers_found):
+                                    msg = f"Error: check line counts in fos.txt."
+                                    response['status'] = 'error'
+                                    print(f"{timestamp()} Error: {msg}", file=sys.stdout)
+                                    return msg
                                 try:
                                     counts[j] = round(NORM * counts[j] / int(kmers_found[j]),2)
                                 except ValueError:
@@ -423,9 +425,15 @@ class Rdeer:
                                     msg = f"File {FOS!r} malformed (index: {index})."
                                     print(f"{timestamp()} Error: {msg}", file=sys.stdout)
                                     return msg
+                                except IndexError:
+                                    response['status'] = 'error'
+                                    msg = f"unable to normalize (error: IndexError)."
+                                    print(f"{timestamp()} Error: {msg}", file=sys.stdout)
+                                    return msg
                             elif normalize and not kmers_found:
                                 response['status'] = 'error'
-                                return(f"unable to normalize counts on {index}, it could be that {FOS} does not contain counts.")
+                                return(f"unable to normalize counts on {index}, it could be that "
+                                       f"{FOS} does not contain counts.")
                             counts[j] = str(counts[j])
                         else:
                             counts[j] = '0'

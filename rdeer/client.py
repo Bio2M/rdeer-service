@@ -6,7 +6,6 @@ In Transipedia, change type 'counts' by 'query' and 'indexes' by 'list'
 and in this file 'to_send({'type'='counts', .....})' by 'to_send({'type'=type, .....})'
 """
 
-""" Module doc """
 
 import sys
 import os

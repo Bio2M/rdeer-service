@@ -4,7 +4,7 @@
 rdeer-service is a tool to facilitate the use of [Reindeer](https://github.com/kamimrcht/REINDEER) as socket mode.
 It also summarize its outputs.
 
-It is a companion to Transipedia, a web application to query easily and fastly Reindeer.
+It is a companion to [Transipedia](https://transipedia.org), a web application to query easily and fastly Reindeer.
 
 ## Installation
 
@@ -26,7 +26,21 @@ git clone https://github.com/Bio2M/rdeer-service.git
 
 ### Prerequisite
 
-[Reindeer](https://github.com/kamimrcht/REINDEER) must be installed and accessible by your PATH.
+You need some Reindeer indexes.
+
+* each index must embeds additionnal file named **fos.txt**
+The fos.txt file must contain the list of sample (IN ORDER) and facultatively for each sample a count to normalize counts with the **-n** option (delimiter: tab)
+
+Example of fof : 
+```
+sample_A	1234567
+sample_B	2367912
+sample C	4562221
+```
+
+* The indexes built with the  **--disk-query** option must have a empy file named **disk-query**. So queries will use the **--disk-query** option.
+
+
 
 ### Start the server
 

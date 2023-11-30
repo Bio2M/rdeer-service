@@ -13,7 +13,6 @@ import argparse
 import socket
 import pickle
 
-# sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 import info
 import common as stream
 
@@ -203,7 +202,7 @@ def usage():
     https://docs.python.org/3/howto/argparse.html?highlight=argparse
     """
     ### build parser
-    parser = argparse.ArgumentParser(prog=info.APPNAME)
+    parser = argparse.ArgumentParser()
     global_parser = argparse.ArgumentParser(add_help=False)
     index_parser = argparse.ArgumentParser(add_help=False)
     subparsers = parser.add_subparsers()

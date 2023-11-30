@@ -1,7 +1,7 @@
 # include *.md
 
 # include all files in lib directory
-# graft rdeer-serices
+graft rdeer/bin
 
 # exclude all files in directory
 # prune testing

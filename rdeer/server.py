@@ -46,7 +46,7 @@ import info
 
 
 DEFAULT_PORT       = 12800
-REINDEER           = 'Reindeer-socket'
+REINDEER           = 'bin/Reindeer-socket'
 INDEX_FILE         = "reindeer_matrix_eqc.gz"
 BASE_TMPFILES      = '/tmp'
 WATCHER_SLEEP_TIME = 8
@@ -156,9 +156,12 @@ class Rdeer:
         """ Class initialiser """
         self.index_dir = args.index_dir
         self.args = args
+        ### Define path to embeded C++ app Reindeer-socket
+        app_path = os.path.dirname(os.path.realpath(__file__))
+        self.REINDEER = os.path.join(app_path, REINDEER)
         ### controls if Reindeer found
-        if not shutil.which(REINDEER):
-            sys.exit(f"Error: {REINDEER!r} not found")
+        if not shutil.which(self.REINDEER):
+            sys.exit(f"Error: {self.REINDEER!r} not found")
         ### loop to maintain index info
         self.indexes = {}               # states of all indexes
         self.sockets = {}               # opened sockets
@@ -232,9 +235,9 @@ class Rdeer:
         port = sock.getsockname()[1]
         ### Launch new instance of Reindeer
         if 'disk-query' in os.listdir(os.path.join(self.args.index_dir, index)):
-            cmd = f'{REINDEER} --query -l {os.path.join(self.args.index_dir, index)} -q {port} --disk-query &'
+            cmd = f'{self.REINDEER} --query -l {os.path.join(self.args.index_dir, index)} -q {port} --disk-query &'
         else :
-            cmd = f'{REINDEER} --query -l {os.path.join(self.args.index_dir, index)} -q {port} &'
+            cmd = f'{self.REINDEER} --query -l {os.path.join(self.args.index_dir, index)} -q {port} &'
         try:
             subprocess.check_call(cmd, shell=True)
             # ~ proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)

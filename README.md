@@ -61,15 +61,23 @@ rdeer-server /path/to/indexes
 
 The client could requests remote rdeer-server servers. You can enterely manage yours Reindeer indexes with subcommand:
 
-* ``list`` to show all indexes with their status
-* ``start <index-name>`` to start a index (the index name is the directory hosting the index files)
-* `stop <index-name>` to stop a index
-* `check <index-name>` to verify if index responding
+* ``rdeer list -a`` to show all indexes with their status
+* ``rdeer start <index-name>`` to start a index (the index name is the directory hosting the index files)
+* `rdeer stop <index-name>` to stop a index
+* `rdeer check <index-name>` to verify if index responding
+* `rdeer query <index-name> -q <query.fa>` to request an index 
 
-**show all indexes:**
+
+**show running indexes:**
 
 ```
 rdeer-client list
+```
+
+**Show all indexes handled by rdeer-server**
+
+```
+rdeer-client list -a
 ```
 
 list all accessible indexes by rdeer-server, with status. Status are : 
@@ -77,6 +85,7 @@ list all accessible indexes by rdeer-server, with status. Status are :
 * `available` the index is not running
 * `loading` the index is in a transitional mode until the running mode
 * `running` the index is started, and can be resquested.
+
 
 **Start an index:**
 
@@ -98,7 +107,8 @@ Options of query subcommand (`rdeer-client query --help`):
 
 * `-q`, `--query` to send a query file at the fasta format (**required**)
 * `-n`, `--normalize` to obtain normalized counts
+* `-u`, `unitig-counts` to obtain raw Reindeer output
 * `-s`, `--server` to request rdeer-server on remote host
-* `-p`, `--port` to resquest rdeer-server on a specified port (default: 12800)
+* `-p`, `--port` to request rdeer-server on a specified port (default: 12800)
 * `-o`, `--outfile` output is stdout by default, you can specified a file
 

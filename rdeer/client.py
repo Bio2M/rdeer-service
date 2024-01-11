@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
 
-"""
-TODO
-In Transipedia, change type 'counts' by 'query' and 'indexes' by 'list'
-and in this file 'to_send({'type'='counts', .....})' by 'to_send({'type'=type, .....})'
-"""
-
-
 import sys
 import os
 import argparse
@@ -15,7 +8,6 @@ import pickle
 
 import info
 import common as stream
-
 
 
 def main():
@@ -68,7 +60,14 @@ def ask_server(args):
                     'data': f"Error: unable to connect to {server!r} on port {port}.",
                     }
         return received
-
+    except Exception:
+        a,b,c = sys.exc_info()
+        received = {
+                    'type': args['type'],
+                    'status' : 'error',
+                    'data': f"{a.__name__}: {b} (at line {c.tb_lineno})",
+                    }
+        return received
     ### send request to rdeer-server
     if args['type'] == 'query':
         ### when rdeer-client is used as a program, query is a string IO

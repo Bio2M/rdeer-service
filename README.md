@@ -28,10 +28,10 @@ git clone https://github.com/Bio2M/rdeer-service.git
 
 You need some Reindeer indexes.
 
-* each index must embeds additionnal file named **fos.txt**
-The fos.txt file must contain the list of sample (IN ORDER) and facultatively for each sample a count to normalize counts with the **-n** option (delimiter: tab)
+* each index must embeds additionnal file named **fos.txt**. The fos.txt file must contain the list of sample (IN ORDER)
+ and facultatively for each sample a count to normalize counts with the **-n** option (delimiter: tab).
 
-Example of fof : 
+Example of fos.txt file : 
 ```
 sample_A	1234567
 sample_B	2367912

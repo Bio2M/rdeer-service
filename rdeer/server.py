@@ -32,8 +32,10 @@ import argparse
 import threading
 import pickle
 import shutil
+from packaging import version
 # ~ import psutil
 import tempfile
+import psutil
 import signal
 import subprocess
 import time
@@ -46,21 +48,17 @@ import info
 
 
 DEFAULT_PORT       = 12800
-REINDEER           = 'bin/Reindeer-socket'
-INDEX_FILE         = "reindeer_matrix_eqc.gz"
+REINDEER           = 'reindeer_socket'
+INDEX_FILES         = ["reindeer_matrix_eqc_info.txt", "reindeer_matrix_eqc_position", "reindeer_matrix_eqc"]
 BASE_TMPFILES      = '/tmp'
 WATCHER_SLEEP_TIME = 8
-NORM               = 1000000000     # Normalisation factor
-### Allowed request types
-ALLOWED_TYPES = ['list', 'start', 'stop', 'query', 'check']
-### Do not change (unless using another file)
-FOS                 = 'fos.txt'     # used to header and normalization
-### do not change (unless Reindeer-socket is modified)
-class RDSock_Mesg:
-    HELP  = ' * HELP'
-    INDEX = 'INDEX'
-    QUERY = 'DONE'
-    QUIT  = 'See you soon'
+ALLOWED_TYPES = ['list', 'start', 'stop', 'query', 'check', 'status']     # REINDEER_SOCKET COMMANDS
+class RDSock_Mesg:                                                        # MESSAGES RETURNED BY REINDEER
+    HELP  = b' * HELP'
+    INDEX = b'INDEX'
+    QUERY = b'DONE'
+    QUIT  = b"I'm leaving, see you next time !"
+    STOP  = b'See you soon'
 
 timestamp = lambda: datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 
@@ -87,11 +85,11 @@ def exit_gracefully(signal, frame, rdeer):
         for index, values in rdeer.indexes.items():
             if values['status'] == 'running':
                 getattr(rdeer, 'stop')({'index':index})
-        sys.exit(f"{timestamp()}: Server {socket.gethostname()!r} interrupted by signal {signal}.")
+        sys.exit(f"{timestamp()}: Server: {socket.gethostname()!r} interrupted by signal {signal}.")
 
 
 def run_server(args, rdeer):
-    """ Function doc """
+    """ Launch rdeer-server in listening mode """
     port = args.port
     ### run server
     conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -101,7 +99,7 @@ def run_server(args, rdeer):
         sys.exit(f"Error: Address already in use (port: {port}).")
     conn.listen(10)
     ### timestamps server startup
-    print(f"{timestamp()}: Server {socket.gethostname()!r} listening on port {port}.", file=sys.stdout)
+    print(f"{timestamp()}: Server: {socket.gethostname()!r} listening on port {port}.", file=sys.stdout)
 
     while True:
         client, addr = conn.accept()
@@ -110,7 +108,7 @@ def run_server(args, rdeer):
             received = stream.recv_msg(client)
             received = pickle.loads(received)
             ### loggin request
-            user = received['user'] if 'user' in received else 'unknown'
+            user = received.get('user') or 'unknown'
             if 'index' in received:
                 print(f"{timestamp()} client:{addr[0]} type:{received['type']} user:{user} index:{received['index']}", file=sys.stdout)
             else:
@@ -122,16 +120,26 @@ def run_server(args, rdeer):
             stream.send_msg(client, b"Error: ran out of input")
             continue
         except TypeError:
-            msg = "Error: no data to send to client (Maybe issue comes from client)."
-            print(msg, file=sys.stderr)
+            data = "Error: no data to send to Reindeer (Maybe issue comes from client)."
+            response = {'type': received['type'], 'status': 'error', 'data': data,}
             stream.send_msg(client, msg.encode())
+            continue
+
+        ### CHECK VERSION
+        srv_vers = info.VERSION
+        clt_vers = received.get('version') or 'unknown'
+        if clt_vers=='unknown' or version.parse(clt_vers).major != version.parse(srv_vers).major:
+            data = f"Error: server and client do not have the same major version (clt:{srv_vers} - srv:{clt_vers})."
+            response = {'type': received['type'], 'status': 'error', 'data': data,}
+            stream.send_msg(client, pickle.dumps(response))
             continue
 
         ### call rdeer method corresponding to the type of request
         if received['type'] not in ALLOWED_TYPES:
-            msg = "Error: request type not handled (Maybe check version between rdeer-client and rdeer server)."
+            msg = f"Error: request type {received['type']} not handled. Please contact maintainer"
+            response = {'type': received['type'], 'status': 'error', 'data': msg,}
             print(msg, file=sys.stderr)
-            stream.send_msg(client, msg.encode())
+            stream.send_msg(client, pickle.dumps(response))
             continue
 
         response = getattr(rdeer, received['type'])(received, addr)
@@ -150,21 +158,29 @@ def run_server(args, rdeer):
 
 
 class Rdeer:
-    """ Class doc """
+    """
+    Maintain indexes information in 'indexes' dict
+    Store sockets information in 'socket' dict
+    Methods:
+      - start: launch an index in a free port
+      - stop, check, query: prepares the command to reindeer_socket and transmit to _ask_index()
+      - list: display list of indexes, with status [available|loading|running|error]
+      - _watcher: thread to maintain 'indexes' and 'socket' dicts and connect to loading index
+    """
 
     def __init__(self, args):
         """ Class initialiser """
         self.index_dir = args.index_dir
         self.args = args
-        ### Define path to embeded C++ app Reindeer-socket
+        ### Define path to embeded C++ app reindeer_socket
         app_path = os.path.dirname(os.path.realpath(__file__))
-        self.REINDEER = os.path.join(app_path, REINDEER)
         ### controls if Reindeer found
-        if not shutil.which(self.REINDEER):
-            sys.exit(f"Error: {self.REINDEER!r} not found")
-        ### loop to maintain index info
+        if not shutil.which(REINDEER):
+            sys.exit(f"Error: {REINDEER!r} not found")
+        ### watcher : loop to maintain index info, connect to index, check indexes
         self.indexes = {}               # states of all indexes
         self.sockets = {}               # opened sockets
+        self.procs = {}                 # reindeer indexes processus
         watcher = threading.Thread(target=self._watcher, name='watcher')
         watcher.daemon = True
         watcher.start()
@@ -189,7 +205,7 @@ class Rdeer:
             ### find all available indexes
             for dir in os.listdir(path):
                 subpath = os.path.join(path, dir)
-                if os.path.isdir(subpath) and INDEX_FILE in os.listdir(subpath):
+                if os.path.isdir(subpath) and all([f in os.listdir(subpath) for f in INDEX_FILES ]):
                     found_dirs.append(dir)
             ### find for new available indexes
             for dir in found_dirs:
@@ -204,16 +220,43 @@ class Rdeer:
 
             ### check for running or loading indexes
             for index, value in self.indexes.items():
-                # ~ print(f"CHECK {index} (value: {value['status']})")
-                if value['status'] == 'loading':
+                port = value['port']
+                if value['status'] == 'loading': # and self._port_open(port):
                     # ~ print(f"{index} IS MARKED AS 'loading' --> CHECK IF RUNNING")
-                    self._connect_index(index, value['port'])
+                    self._connect_index(index, port)
+
+                if value['status'] == 'running':
+                    pass
+                    # ~ print("TODO: ADD CHECK CONTROL")
+                    ### ask to 'INDEX'.
+                    ### If return is blank
+                        ### Send a message
+                        ### if port not running
+                            ### Send a message
+                            ### try a start
+
+                elif value['status'] == 'error':
+                    ### TRY TO KILL THE PROCESS
+                    self.procs[index].kill()
+                    ### RESTART INDEX
+                    received = {'type': 'start', 'index': index, 'port': None,}
+                    self.start(received)
+                    ### TODO: send email"
 
             time.sleep(WATCHER_SLEEP_TIME)
 
-
     def list(self, received, addr=None):
         response = {'type': received['type'], 'status': 'success', 'data': self.indexes}
+        return response
+
+
+    def status(self, received, addr=None):
+        index = received['index']
+        if not index in self.indexes:
+            print(f"{timestamp()} Error: unable get index {index} from {addr[0]} (not found).", file=sys.stdout)
+            return {'type': received['type'], 'status': 'error', 'data': f'Index {index} not found.'}
+        status = self.indexes[index]['status']
+        response = {'type': received['type'], 'status': 'success', 'data': status}
         return response
 
 
@@ -225,29 +268,32 @@ class Rdeer:
         ### Check if index is in list and no still started
         if not index in self.indexes:
             print(f"{timestamp()} Error: unable to start index {index} from {addr[0]} (not found).", file=sys.stdout)
-            return {'type':'start', 'status':'error', 'data':f'index {index} not found'}
+            return {'type':'start', 'status':'error', 'data':f'Index {index} not found.'}
         if self.indexes[index]['status'] in ['running', 'loading']:
             print(f"{timestamp()} Error: unable to start index {index} from {addr[0]} (still running or loading).", file=sys.stdout)
             return {'type':'start', 'status':'error', 'data':f'index {index} still running or loading.'}
-        ### pick free port number
+        ### PICK FREE PORT NUMBER
         sock = socket.socket()
         sock.bind(('', 0))
         port = sock.getsockname()[1]
+        sock.close()
+        del(sock)
         ### Launch new instance of Reindeer
-        if 'disk-query' in os.listdir(os.path.join(self.args.index_dir, index)):
-            cmd = f'{self.REINDEER} --query -l {os.path.join(self.args.index_dir, index)} -q {port} --disk-query &'
-        else :
-            cmd = f'{self.REINDEER} --query -l {os.path.join(self.args.index_dir, index)} -q {port} &'
+        cmd = f'{REINDEER} -l {os.path.join(self.args.index_dir, index)} -p {port} &'.split(' ')
+        ### EXECUTE REINDEER_SOCKET on the specified index
         try:
-            subprocess.check_call(cmd, shell=True)
-            # ~ proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
         except subprocess.CalledProcessError:
             msg = f"Error: index {index} could not be loaded"
             return {'type': received['type'], 'status':'error', 'data': msg}
+
+        ### CHANGE STATUS AND RETURN RESPONSE TO CLIENT
         self.indexes[index]['status'] = 'loading'
         self.indexes[index]['port'] = port
-        ### send
-        print(f"{timestamp()} Index {index} started", file=sys.stdout)
+        self.procs[index] = proc
+        self.sockets[index] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        print(f"{timestamp()} Index:{index} status:loading  port:{port}", file=sys.stdout)
         data = self.indexes[index]
         return {'type': received['type'], 'status':'success', 'data': data}
 
@@ -255,12 +301,16 @@ class Rdeer:
     def stop(self, received, addr=None):
         index = received['index']
         response = self._ask_index(index, b'QUIT', RDSock_Mesg.QUIT)
+        response = self._ask_index(index, b'STOP', RDSock_Mesg.STOP)
         if response['status'] == 'success':
             self.sockets[index].shutdown(socket.SHUT_RDWR)
             self.sockets[index].close()
             del(self.sockets[index])
             self.indexes[index]['status'] = 'available'
             self.indexes[index]['port'] = None
+            self.procs[index].kill()
+            self.procs.pop(index)
+            print(f'{timestamp()} Index:{index} status:available', file=sys.stdout)
             return {'type':'stop', 'status':'success','data':f"Index {index!r} sent: {response['data']!r}."}
         else:
             return {'type':'stop', 'status':'error','data':response['data']}
@@ -275,27 +325,33 @@ class Rdeer:
         ### create query fasta file
         with open(infile, 'w') as fh:
             fh.write(received['query'])
-        ### build query
+
+        ### BUILD QUERY
         threshold = ':THRESHOLD:' + received['threshold'] if received['threshold'] else ''
-        mesg = f"FILE:{infile}{threshold}:OUTFILE:{outfile}".encode()
-        ### ask Reindeer
+        mesg = f"FILE:{infile}{threshold}:OUTFILE:{outfile}:FORMAT:{received['format']}".encode()
+
+        ### ASK REINDEER
         response = self._ask_index(index, mesg, RDSock_Mesg.QUERY)
-        if response['status'] == 'success':
-            ### translate Reindeer outfile format to tsv, including headers
-            data = self._out_to_tsv(received, response)
-            shutil.rmtree(tmp_dir, ignore_errors=True)  # delete tempory files
-            ### response to return to client
-            return {'type':'query', 'status':response['status'], 'data':data}
-        else:
+
+        ### IF REINDEER RETURN ERROR
+        if not response['status'] == 'success':
             shutil.rmtree(tmp_dir, ignore_errors=True)  # delete tempory files
             return {'type':'query', 'status':'error', 'data':response['data']}
+
+        ### REINDEER OUTFILE TO tsv (including headers)
+        outfile = os.path.join(os.path.dirname(infile), 'reindeer.out')
+        with open(outfile) as fh:
+            data = fh.read()
+        shutil.rmtree(tmp_dir, ignore_errors=True)  # delete tempory files
+        ### response to return to client
+        return {'type':'query', 'status':response['status'], 'data':data}
 
 
     def check(self, received, addr=None):
         index = received['index']
         response = self._ask_index(index, b'INDEX', RDSock_Mesg.INDEX)
         if response['status'] == 'success':
-            return {'type':'check', 'status':'success','data':f"Index {index!r} is working."}
+            return {'type':'check', 'status':'success','data': f"{index} responds to queries"}
         else:
             return {'type':'check', 'status':'error','data':response['data']}
 
@@ -307,15 +363,11 @@ class Rdeer:
             if self.indexes[index]['status'] == 'running':
                 try:
                     self.sockets[index].send(mesg)
-                    self.sockets[index].settimeout(None)
                     recv = self.sockets[index].recv(1024)
-                    # ~ self.sockets[index].settimeout(None)
                 except:
                     if self._index_is_crashed(index):
                         print(f"{timestamp()} Error: the index {index!r} crashed during a query", file=sys.stdout)
                     return {'status':'error','data':f'Unable to query the {index!r} index.'}
-                recv = recv.decode().rstrip('\n')
-                # ~ print(f"RECV: {recv} --- CONTROL: {control}")
                 if recv.startswith(control):
                     return {'status':'success','data':recv}
                 else:
@@ -329,7 +381,7 @@ class Rdeer:
     def _index_is_crashed(self, index):
         ### check if Reindeer process running, otherwise, probably it is crashed
         port = self.indexes[index]['port']
-        cmd = f'Reindeer-socket --query -l {os.path.join(self.args.index_dir, index)} -q *{port}'
+        cmd = f'{REINDEER} -l {os.path.join(self.args.index_dir, index)} -p *{port}'
         proc = subprocess.run(f"ps -ef | grep '{cmd}'", shell=True, stdout=subprocess.PIPE)
         if proc.returncode:
             self.indexes[index]['status'] = 'error'
@@ -343,113 +395,27 @@ class Rdeer:
         if self._index_is_crashed(index):
             print(f'{timestamp()} Error: index {index} crashed during loading', file=sys.stdout)
 
-        ### check if Reindeer process running, otherwise, probably it is crashed
-        # ~ cmd = f'Reindeer-socket --query -l {os.path.join(self.args.index_dir, index)} -q *{port}'
-        # ~ proc = subprocess.run(f"ps -ef | grep '{cmd}'", shell=True, stdout=subprocess.PIPE)
-        # ~ if proc.returncode:
-            # ~ print(f'error: index {index} crashed during loading')
-
         ### try to connect
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            s.settimeout(1)
-            s.connect(('', int(port)))    # Connect to running Reindeer
+            ### Try to connect to loading Index (It returns 0 whis success, else an other number )
+            self.sockets[index].connect_ex(('', int(port)))
+            ### Try to get WELCOME message
+            self.sockets[index].settimeout(1)
+            welcome = self.sockets[index].recv(1024)
+            self.sockets[index].settimeout(None)
+            ### Change index statut
             self.indexes[index]['status'] = 'running'
-            self.sockets[index] = s
-            ### evacuate WELCOME and INDEX message
-            welcome = s.recv(1024)
-            # ~ print(f"FIRST MESG: {welcome}")
-            index = s.recv(1024)
-            # ~ print(f"SECOND MESG: {index}")
-            s.settimeout(None)
-        except ConnectionRefusedError:
-            ### try to connect during loading time  (with s.connect(('', int(port)))
+            print(f'{timestamp()} Index:{index} status:running port:{port}', file=sys.stdout)
+        except TimeoutError:
+            ### While Reindeer Index is not loaded, a TimeoutError appear at s.recv() message
             pass
-        except OSError:
-            ### try to connect during loading time  (with s.connect(('', int(port)))
-            pass
-
-
-    def _out_to_tsv(self, received, response):
-        """
-        1. reduce counts to one number value,
-        2. normalize counts (if asked by client)
-        """
-        index = received['index']
-        normalize = received['normalize']
-        samples = []
-        kmers_found = []
-
-        ### Add header to data from FOS file (File of Samples)
-        header = 'seq_name\t'
-        data = []
-        try:
-            with open(os.path.join(self.args.index_dir, index, FOS)) as fh:
-                for line in fh:
-                    sample, *kmers = line.split()
-                    if kmers: kmers_found.append(kmers[0])
-                    samples.append(sample)
-                header = header + '\t'.join(samples)
-        except FileNotFoundError:
-            return f"Error: file {FOS} not found on {socket.gethostname()}:{os.path.join(self.args.index_dir, index)} location."
-        header += '\n'       # Add newline at EOL
-
-        ### open Reindeer outfile
-        outfile = response['data'].split(':')[1]
-
-        ### if unitig_counts option is set, the output of Reindeer is requered, not TSV file
-        if "unitig_counts" in received and received["unitig_counts"]:
-            with open(outfile) as fh:
-                for line in fh:
-                    data.append(line[1:])
-            data = ''.join(data)
-        else:
-            ### Reduce complex values of Reindeer output to single count
-            with open(outfile) as fh:
-                for line in fh:  # i --> sequence
-                    seq_name, *counts = line.rstrip('\n').lstrip('>').split('\t')
-                    for j,count in enumerate(counts):           # j --> sample/count
-                        if count != '*':
-                            counts[j] = [c.split(':')[1] for c in count.split(",")]
-                            ### average of untigs counts - but stars  ('*') must be removed
-                            counts[j] = sum([int(c) for c in counts[j] if c != '*']) // len(counts[j])
-                            ### NORMALIZE if kmers counts are present in file of samples (fos.txt)
-                            if normalize and kmers_found:
-                                if len(counts) != len(kmers_found):
-                                    msg = f"Error: check line counts in fos.txt."
-                                    response['status'] = 'error'
-                                    print(f"{timestamp()} Error: {msg}", file=sys.stdout)
-                                    return msg
-                                try:
-                                    counts[j] = round(NORM * counts[j] / int(kmers_found[j]),2)
-                                except ValueError:
-                                    self.indexes[index]['status'] = 'error'
-                                    response['status'] = 'error'
-                                    msg = f"File {FOS!r} malformed (index: {index})."
-                                    print(f"{timestamp()} Error: {msg}", file=sys.stdout)
-                                    return msg
-                                except IndexError:
-                                    response['status'] = 'error'
-                                    msg = f"unable to normalize (error: IndexError)."
-                                    print(f"{timestamp()} Error: {msg}", file=sys.stdout)
-                                    return msg
-                            elif normalize and not kmers_found:
-                                response['status'] = 'error'
-                                return(f"unable to normalize counts on {index}, it could be that "
-                                       f"{FOS} does not contain counts.")
-                            counts[j] = str(counts[j])
-                        else:
-                            counts[j] = '0'
-                    data.append(seq_name + '\t' + '\t'.join(counts))
-            data = '\n'.join(data) + '\n'
-
-        ### join header and counts
-        data = header + data
-        # ~ print(f"TSV:\n{data[:200]}....")
-
-        return data
-
-
+        ### TODO DELETE ALL COMMENTS
+        # ~ except ConnectionRefusedError:
+            # ~ ### try to connect during loading time  (with s.connect(('', int(port)))
+            # ~ pass
+        # ~ except OSError:
+            # ~ ### try to connect during loading time  (with s.connect(('', int(port)))
+            # ~ pass
 
 def usage():
     """

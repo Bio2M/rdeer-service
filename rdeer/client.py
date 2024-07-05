@@ -95,7 +95,6 @@ def ask_server(args):
 
     ### some controls
     check_data(received)
-    received['version'] = info.VERSION
 
     return received
 
@@ -289,6 +288,7 @@ def usage():
     parser.add_argument('-v', '--version',
                         action='version',
                         version=f"{parser.prog} v{info.VERSION}",
+                        default=info.VERSION,
                        )
 
 

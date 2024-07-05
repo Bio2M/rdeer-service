@@ -31,7 +31,7 @@ setuptools.setup(
         ],
     },
     include_package_data = True,
-    # install_requires=['PyYAML'],
-    python_requires = ">=3.6",
+    install_requires=['packaging'],
+    python_requires = ">=3.7",
     licence = "GPLv3"
 )

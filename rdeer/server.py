@@ -32,6 +32,7 @@ import argparse
 import threading
 import pickle
 import shutil
+from packaging import version
 # ~ import psutil
 import tempfile
 import signal
@@ -125,6 +126,15 @@ def run_server(args, rdeer):
             msg = "Error: no data to send to client (Maybe issue comes from client)."
             print(msg, file=sys.stderr)
             stream.send_msg(client, msg.encode())
+            continue
+
+        ### CHECK VERSION
+        srv_vers = info.VERSION
+        clt_vers = received.get('version') or '0'
+        if version.parse(clt_vers).major > 1:
+            data = f"Error: server and client do not have the same major version (srv:{srv_vers!r} - clt:{clt_vers!r})."
+            response = {'type': received['type'], 'status': 'error', 'data': data,}
+            stream.send_msg(client, pickle.dumps(response))
             continue
 
         ### call rdeer method corresponding to the type of request

@@ -70,7 +70,7 @@ def ask_server(args):
         return received
     ### send request to rdeer-server
     if args['type'] == 'query':
-        ### when rdeer-client is used as a program, query is a string IO
+        ### when rdeer-client is used as a program, query is a IO string
         if hasattr(args['query'], 'read'):
             args['query'] = args['query'].read()
         ### query empty

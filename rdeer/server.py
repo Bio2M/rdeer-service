@@ -103,58 +103,61 @@ def run_server(args, rdeer):
 
     while True:
         client, addr = conn.accept()
-        ### receive data stream. It won't accept data packet greater than 1024 bytes
-        try:
-            received = stream.recv_msg(client)
-            received = pickle.loads(received)
-            ### loggin request
-            user = received.get('user') or 'unknown'
-            if 'index' in received:
-                print(f"{timestamp()} client:{addr[0]} type:{received['type']} user:{user} index:{received['index']}", file=sys.stdout)
-            else:
-                print(f"{timestamp()} client:{addr[0]} type:{received['type']} user:{user}", file=sys.stdout)
-        except pickle.UnpicklingError:
-            stream.send_msg(client, b"Error: data sent too big.")
-            continue
-        except EOFError:
-            stream.send_msg(client, b"Error: ran out of input")
-            continue
-        except TypeError:
-            data = "Error: no data to send to Reindeer (Maybe issue comes from client)."
-            response = {'type': received['type'], 'status': 'error', 'data': data,}
-            stream.send_msg(client, msg.encode())
-            continue
-
-        ### CHECK VERSION
-        srv_vers = info.VERSION
-        clt_vers = received.get('version') or 'unknown'
-        if clt_vers=='unknown' or version.parse(clt_vers).major != version.parse(srv_vers).major:
-            data = f"Error: server and client do not have the same major version (clt:{srv_vers} - srv:{clt_vers})."
-            response = {'type': received['type'], 'status': 'error', 'data': data,}
-            stream.send_msg(client, pickle.dumps(response))
-            continue
-
-        ### call rdeer method corresponding to the type of request
-        if received['type'] not in ALLOWED_TYPES:
-            msg = f"Error: request type {received['type']} not handled. Please contact maintainer"
-            response = {'type': received['type'], 'status': 'error', 'data': msg,}
-            print(msg, file=sys.stderr)
-            stream.send_msg(client, pickle.dumps(response))
-            continue
-
-        response = getattr(rdeer, received['type'])(received, addr)
-
-        ## If Error message
-        if response['status'] == 'Error':
-            print(f"{response['status']}: {response['msg']}", file=sys.stderr, flush=True)
-            stream.send_msg(client, pickle.dumps(response))
-
-        ### Send response to client
-        stream.send_msg(client, pickle.dumps(response))
+        ### run client query in a separated thread
+        threading.Thread(target=handle_client, args=(client, addr, rdeer)).start()
 
     client.close()
     conn.close()
 
+
+def handle_client(client, addr, rdeer):
+    try:
+        ### receive data stream. It won't accept data packet greater than 1024 bytes
+        received = stream.recv_msg(client)
+        received = pickle.loads(received)
+        ### loggin request
+        user = received.get('user') or 'unknown'
+        if 'index' in received:
+            print(f"{timestamp()} client:{addr[0]} type:{received['type']} user:{user} index:{received['index']}", file=sys.stdout)
+        else:
+            print(f"{timestamp()} client:{addr[0]} type:{received['type']} user:{user}", file=sys.stdout)
+    except pickle.UnpicklingError:
+        stream.send_msg(client, b"Error: data sent too big.")
+        return
+    except EOFError:
+        stream.send_msg(client, b"Error: ran out of input")
+        return
+    except TypeError:
+        data = "Error: no data to send to Reindeer (Maybe issue comes from client)."
+        response = {'type': received['type'], 'status': 'error', 'data': data,}
+        stream.send_msg(client, msg.encode())
+        return response
+
+    ### CHECK VERSION
+    srv_vers = info.VERSION
+    clt_vers = received.get('version') or 'unknown'
+    if clt_vers=='unknown' or version.parse(clt_vers).major != version.parse(srv_vers).major:
+        data = f"Error: server and client do not have the same major version (clt:{srv_vers} - srv:{clt_vers})."
+        response = {'type': received['type'], 'status': 'error', 'data': data,}
+        stream.send_msg(client, pickle.dumps(response))
+        return response
+
+    ### CALL RDEER METHOD MATCHING TO THE QUERY TYPE
+    if received['type'] not in ALLOWED_TYPES:
+        msg = f"Error: request type {received['type']} not handled. Please contact maintainer"
+        response = {'type': received['type'], 'status': 'error', 'data': msg,}
+        print(msg, file=sys.stderr)
+        stream.send_msg(client, pickle.dumps(response))
+        return response
+    response = getattr(rdeer, received['type'])(received, addr)
+
+    ## If Error message
+    if response['status'] == 'Error':
+        print(f"{response['status']}: {response['msg']}", file=sys.stderr, flush=True)
+        stream.send_msg(client, pickle.dumps(response))
+
+    ### Send response to client
+    stream.send_msg(client, pickle.dumps(response))
 
 
 class Rdeer:
@@ -338,12 +341,17 @@ class Rdeer:
             shutil.rmtree(tmp_dir, ignore_errors=True)  # delete tempory files
             return {'type':'query', 'status':'error', 'data':response['data']}
 
-        ### REINDEER OUTFILE TO tsv (including headers)
+        ### REINDEER OUTFILE TO tsv
         outfile = os.path.join(os.path.dirname(infile), 'reindeer.out')
-        with open(outfile) as fh:
-            data = fh.read()
+        try:
+            with open(outfile) as fh:
+                data = fh.read()
+        except FileNotFoundError:
+            time.sleep(.5)
+            with open(outfile) as fh:
+                data = fh.read()
         shutil.rmtree(tmp_dir, ignore_errors=True)  # delete tempory files
-        ### response to return to client
+        ### RESPONSE TO CLIENT
         return {'type':'query', 'status':response['status'], 'data':data}
 
 

@@ -33,9 +33,7 @@ import threading
 import pickle
 import shutil
 from packaging import version
-# ~ import psutil
 import tempfile
-import psutil
 import signal
 import subprocess
 import time
@@ -49,10 +47,10 @@ import info
 
 DEFAULT_PORT       = 12800
 REINDEER           = 'reindeer_socket'
-INDEX_FILES         = ["reindeer_matrix_eqc_info.txt", "reindeer_matrix_eqc_position", "reindeer_matrix_eqc"]
+INDEX_FILES        = ["reindeer_matrix_eqc_info.txt", "reindeer_matrix_eqc_position", "reindeer_matrix_eqc"]
 BASE_TMPFILES      = '/tmp'
 WATCHER_SLEEP_TIME = 8
-ALLOWED_TYPES = ['list', 'start', 'stop', 'query', 'check', 'status']     # REINDEER_SOCKET COMMANDS
+ALLOWED_TYPES      = ['list', 'start', 'stop', 'query', 'check', 'status']     # REINDEER_SOCKET COMMANDS
 class RDSock_Mesg:                                                        # MESSAGES RETURNED BY REINDEER
     HELP  = b' * HELP'
     INDEX = b'INDEX'
@@ -137,7 +135,7 @@ def handle_client(client, addr, rdeer):
     srv_vers = info.VERSION
     clt_vers = received.get('version') or 'unknown'
     if clt_vers=='unknown' or version.parse(clt_vers).major != version.parse(srv_vers).major:
-        data = f"Error: server and client do not have the same major version (clt:{srv_vers} - srv:{clt_vers})."
+        data = f"Error: server and client do not have the same major version (client: {clt_vers} - server: {srv_vers})."
         response = {'type': received['type'], 'status': 'error', 'data': data,}
         stream.send_msg(client, pickle.dumps(response))
         return response
@@ -347,6 +345,7 @@ class Rdeer:
             with open(outfile) as fh:
                 data = fh.read()
         except FileNotFoundError:
+            print('PAS GLOP')               # TODO: DELETE IN PROD
             time.sleep(.5)
             with open(outfile) as fh:
                 data = fh.read()

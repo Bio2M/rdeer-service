@@ -1,10 +1,17 @@
 # RDEER-SERVICE
 
+rdeer-service is a tool to facilitate the use of [Reindeer](https://github.com/kamimrcht/REINDEER) as a socket mode. It allows multiple Reindeer indexes to be loaded into memory, spread over several servers, enabling queries to be made quickly and easily.
 
-rdeer-service is a tool to facilitate the use of [Reindeer](https://github.com/kamimrcht/REINDEER) as socket mode.
-It also summarize its outputs.
+It consists of a server part: **rdeer-server**, one instance of which will be started per index server, and a client part: **rdeer**, which allows index manipulation (stopping, starting, etc.) and queries.
 
-It is a companion to [Transipedia](https://transipedia.org), a web application to query easily and fastly Reindeer.
+It is a companion to [Transipedia](https://transipedia.org), a web application for querying Reindeer but it may be useful to use it independently.
+
+
+### Prerequisite
+
+- Reindeer must be installed on indexes servers an the **reindeer_socket** binary in your $PATH
+- You need some Reindeer indexes (Stored on SSD disks to better performances).
+
 
 ## Installation
 
@@ -24,23 +31,6 @@ git clone https://github.com/Bio2M/rdeer-service.git
 
 ## How to use?
 
-### Prerequisite
-
-You need some Reindeer indexes.
-
-* each index must embeds additionnal file named **fos.txt**. The fos.txt file must contain the list of sample (IN ORDER)
- and facultatively for each sample a count to normalize counts with the **-n** option (delimiter: tab).
-
-Example of fos.txt file : 
-```
-sample_A	1234567
-sample_B	2367912
-sample C	4562221
-```
-
-* The indexes built with the  **--disk-query** option must have a empy file named **disk-query**. So queries will use the **--disk-query** option.
-
-
 
 ### Start the server
 
@@ -53,7 +43,7 @@ rdeer-server /path/to/indexes
 * rdeer-server listen on port 12800, you can change this with `--port` option.
 * The server will only be able to handle indexes in the specified directory. If your indexes are spread over several directories, you may create symlinks in `/path/to/indexes`.
 * You can add, remove or change the name of the indexes, rdeer-server takes the changes on the fly.
-* It is recommanded to start rdeer-server as a daemon, using systemd, supervisord or whatever.
+* It is recommended to start rdeer-server as a daemon, using systemd, supervisord or similar.
 
 
 
@@ -61,10 +51,11 @@ rdeer-server /path/to/indexes
 
 The client could requests remote rdeer-server servers. You can enterely manage yours Reindeer indexes with subcommand:
 
-* ``rdeer list -a`` to show all indexes with their status
-* ``rdeer start <index-name>`` to start a index (the index name is the directory hosting the index files)
+* `rdeer list -a` to show all indexes with their status
+* `rdeer start <index-name>` to start a index (the index name is the directory hosting the index files)
 * `rdeer stop <index-name>` to stop a index
 * `rdeer check <index-name>` to verify if index responding
+* `rdeer status <index-name>` to get the index status (available, loading, running, error)
 * `rdeer query <index-name> -q <query.fa>` to request an index 
 
 
@@ -85,6 +76,7 @@ list all accessible indexes by rdeer-server, with status. Status are :
 * `available` the index is not running
 * `loading` the index is in a transitional mode until the running mode
 * `running` the index is started, and can be resquested.
+* `error` a error occured on the index.
 
 
 **Start an index:**
@@ -105,10 +97,13 @@ Requests the specified index, the query file is required and must be in a fasta 
 
 Options of query subcommand (`rdeer-client query --help`):
 
-* `-q`, `--query` to send a query file at the fasta format (**required**)
-* `-n`, `--normalize` to obtain normalized counts
-* `-u`, `unitig-counts` to obtain raw Reindeer output
-* `-s`, `--server` to request rdeer-server on remote host
-* `-p`, `--port` to request rdeer-server on a specified port (default: 12800)
-* `-o`, `--outfile` output is stdout by default, you can specified a file
+* `-q/--query` to send a query file at the fasta format (**required**)
+* `-f/--format {raw,sum,average,mean,normalize}` where
+    * `raw` to get results 
+    * `sum` to get sum of kmer counts
+    * `average` to get sum of kmer counts / number of kmers
+    * `normalize` to get normalized counts as billion of kmers
+* `-s/--server` to request rdeer-server on remote host
+* `-p/--port` to request rdeer-server on a specified port (default: 12800)
+* `-o/--outfile` output is stdout by default, you can specified a file
 

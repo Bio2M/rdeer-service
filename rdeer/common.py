@@ -3,6 +3,7 @@ import struct
 
 def send_msg(sock, msg):
     # Prefix each message with a 4-byte length (network byte order)
+    # https://docs.python.org/fr/3.12/library/struct.html#format-characters
     msg = struct.pack('>I', len(msg)) + msg
     try:
         sock.sendall(msg)

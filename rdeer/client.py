@@ -25,7 +25,7 @@ def ask_server(args):
     args must be a dict(), containing:
         - 'server': the name or IP of rdeer-socket
         - 'port': the TCP port on which rdeer-socket listen
-        - 'type' could be 'list', 'start', 'stop', 'query', 'check'
+        - 'type' could be 'list', 'start', 'stop', 'query', 'check, 'status'
         - 'index' name of the index (mandatory when 'type' is 'start', 'stop', 'query', 'check')
         - 'query' path/file of a fasta file (mandatory when 'type' is 'query')
     """
@@ -70,7 +70,7 @@ def ask_server(args):
         return received
     ### send request to rdeer-server
     if args['type'] == 'query':
-        ### when rdeer-client is used as a program, query is a string IO
+        ### when rdeer-client is used as a program, query is a IO string
         if hasattr(args['query'], 'read'):
             args['query'] = args['query'].read()
         ### query empty
@@ -150,6 +150,11 @@ class Client:
         else:
             print('\n'.join([k for k,v in sorted(self.received['data'].items()) if v['status'] == 'running']))
 
+
+    def status(self):
+        print(self.received['data'])
+
+
     def start(self):
         print(f"{self.args.index} is now {self.received['data']['status']}")
 
@@ -227,11 +232,9 @@ def usage():
     index_parser.add_argument('index',
                         help="INDEX: Reindeer index",
                         metavar="INDEX",
-                        # required=True,
                         )
     # create subparser for the "list" command
     parser_list = subparsers.add_parser("list",
-                        # ~ aliases=['li'],
                         parents = [global_parser],
                         help="List all running index",
                         )
@@ -256,24 +259,25 @@ def usage():
     parser_query.add_argument('-t', '--threshold',
                         help="THRESHOLD: minimum mean of kmers in dataset (see Reindeer help)",
                         )
-    parser_query.add_argument('-n', '--normalize',
-                        action="store_true",
-                        help="Normalize results, fos.txt must contains counts (see fos_buider.py command)",
-                       )
-    parser_query.add_argument('-u', '--unitig-counts',
-                        action="store_true",
-                        help="output Reindeer results, not single count per sample/sequence",
+    parser_query.add_argument('-f', '--format',
+                        choices=['raw', 'sum', 'average', 'mean', 'normalize'],
+                        default='average',
+                        help="format of counts",
                        )
     # create subparser for the "check" command
     parser_check = subparsers.add_parser("check",
-                        # ~ aliases=['ch'],
-                        parents=[global_parser],
-                        help="check specified index (all indexes by default)",
+                        parents=[index_parser, global_parser],
+                        help="check specified index",
                         )
-    parser_check.add_argument('index',
-                        help="INDEX: index to check (default: all)",
-                        metavar="INDEX",
+    # create subparser for the "status" command
+    parser_status = subparsers.add_parser("status",
+                        parents=[index_parser, global_parser],
+                        help="return status of the specified index",
                         )
+    # ~ parser_check.add_argument('index',
+                        # ~ help="INDEX: index to check (default: all)",
+                        # ~ metavar="INDEX",
+                        # ~ )
     # create subparser for the "start" command
     parser_start = subparsers.add_parser("start",
                         parents=[index_parser, global_parser],

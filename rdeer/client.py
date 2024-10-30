@@ -18,7 +18,7 @@ def main():
     # ~ print(f"RECEIVED from {args.server}: {received}")
 
     ### SPECIAL CASE, RDEER SERVER IS in v1 VERSION
-    if received['data'].startswith('Error: server and client do not have the same major version'):
+    if isinstance(received['data'], str) and received['data'].startswith('Error: server and client do not have the same major version'):
         ### CHANGE ARGS TO SIMULATE VERSION 1
         args.version = "1.0.0"
         ### IF type == 'query', NEED TO MODIFY ARGS

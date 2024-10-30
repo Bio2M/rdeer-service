@@ -9,7 +9,7 @@ It is a companion to [Transipedia](https://transipedia.org), a web application f
 
 ### Prerequisite
 
-- Reindeer must be installed on indexes servers an the **reindeer_socket** binary in your $PATH
+- Reindeer must be installed on indexes servers and the **reindeer_socket** binary in your $PATH
 - You need some Reindeer indexes (Stored on SSD disks to better performances, otherwise build indexes with the Reindeer `--mem-query` option).
 
 ## Installation

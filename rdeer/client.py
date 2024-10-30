@@ -16,8 +16,38 @@ def main():
     # ~ print(f"SENT to {args.server}:{vars(args)}")
     received = ask_server(vars(args))
     # ~ print(f"RECEIVED from {args.server}: {received}")
+
+    ### SPECIAL CASE, RDEER SERVER IS in v1 VERSION
+    if received['data'].startswith('Error: server and client do not have the same major version'):
+        ### CHANGE ARGS TO SIMULATE VERSION 1
+        args.version = "1.0.0"
+        ### IF type == 'query', NEED TO MODIFY ARGS
+        if args.type == "query":
+            args.normalize = False
+            match args.format:
+                case "raw":
+                    args.unitig_counts = True
+                case "sum":
+                    exit_on_version_error("--type sum")
+                case "normalize":
+                    args.normalize = True
+                case "average" | "mean":
+                    pass
+        ### STATUS argument is new in v2
+        if args.type == "status":
+            exit_on_version_error(args.type)
+
+        ### ASK_SERVER AGAIN, BUT WITH v1 ARGS STYLE
+        received = ask_server(vars(args))
+
     client = Client(args, received)
     client.handle_recv()
+
+
+def exit_on_version_error(err_opt):
+    sys.exit(f"Error: rdeer-server not handle the {err_opt!r} option.\n"
+              "       Maybee you could to upgrade rdeer-server to version >= 2.0.0\n"
+              "       (don't forget to update also the indexes)")
 
 
 def ask_server(args):
@@ -32,7 +62,7 @@ def ask_server(args):
     server = args['server']
     port = args['port']
     received = None
-    ### Connection to server
+    ### CONNECTION TO SERVER RDEER
     conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         conn.settimeout(4)
@@ -40,35 +70,31 @@ def ask_server(args):
         conn.settimeout(None)
     except socket.timeout:
         received = {
-                    'type': args['type'],
-                    'status' : 'error',
+                    'type': args['type'], 'status' : 'error',
                     'data': (f"ErrorConnection: unable to connect to {server} on port {port}"
                             " (server not responding on this port)."),
                     }
         return received
     except socket.gaierror:
         received = {
-                    'type': args['type'],
-                    'status' : 'error',
+                    'type': args['type'], 'status' : 'error',
                     'data': f"ErrorConnection: unable to connect to {server} on port {port} (might a name resolution issue).",
                     }
         return received
     except ConnectionRefusedError:
         received = {
-                    'type': args['type'],
-                    'status' : 'error',
+                    'type': args['type'], 'status' : 'error',
                     'data': f"Error: unable to connect to {server!r} on port {port}.",
                     }
         return received
     except Exception:
         a,b,c = sys.exc_info()
         received = {
-                    'type': args['type'],
-                    'status' : 'error',
+                    'type': args['type'], 'status' : 'error',
                     'data': f"{a.__name__}: {b} (at line {c.tb_lineno})",
                     }
         return received
-    ### send request to rdeer-server
+    ### REQUEST TO SERVER RDEER
     if args['type'] == 'query':
         ### when rdeer-client is used as a program, query is a IO string
         if hasattr(args['query'], 'read'):
@@ -139,6 +165,8 @@ class Client:
 
     def list(self):
         """Return the list of indexes"""
+        if not self.received['data']:
+            sys.exit(f"{color.CYAN}Warning: no index found by rdeer-server.")
         if self.args.all:
             LOADCOL  = "\033[1m\033[5;36m"    # blinking and bold cyan
             RUNCOL   ='\033[1;32m'            # green
@@ -262,7 +290,7 @@ def usage():
     parser_query.add_argument('-f', '--format',
                         choices=['raw', 'sum', 'average', 'mean', 'normalize'],
                         default='average',
-                        help="format of counts",
+                        help="counts format, note that average == mean (default: average)",
                        )
     # create subparser for the "check" command
     parser_check = subparsers.add_parser("check",
@@ -274,10 +302,6 @@ def usage():
                         parents=[index_parser, global_parser],
                         help="return status of the specified index",
                         )
-    # ~ parser_check.add_argument('index',
-                        # ~ help="INDEX: index to check (default: all)",
-                        # ~ metavar="INDEX",
-                        # ~ )
     # create subparser for the "start" command
     parser_start = subparsers.add_parser("start",
                         parents=[index_parser, global_parser],
@@ -294,7 +318,6 @@ def usage():
                         version=f"{parser.prog} v{info.VERSION}",
                         default=info.VERSION,
                        )
-
 
     ### Go to "usage()" without arguments or stdin
     if len(sys.argv) == 1:

@@ -50,8 +50,8 @@ REINDEER           = 'reindeer_socket'
 INDEX_FILES        = ["reindeer_matrix_eqc_info.txt", "reindeer_matrix_eqc_position", "reindeer_matrix_eqc"]
 BASE_TMPFILES      = '/tmp'
 WATCHER_SLEEP_TIME = 8
-ALLOWED_TYPES      = ['list', 'start', 'stop', 'query', 'check', 'status']     # REINDEER_SOCKET COMMANDS
-class RDSock_Mesg:                                                        # MESSAGES RETURNED BY REINDEER
+ALLOWED_TYPES      = ['list', 'start', 'stop', 'query', 'check', 'status']  # REINDEER_SOCKET COMMANDS
+class RDSock_Mesg:                                                          # MESSAGES RETURNED BY REINDEER
     HELP  = b' * HELP'
     INDEX = b'INDEX'
     QUERY = b'DONE'
@@ -173,8 +173,6 @@ class Rdeer:
         """ Class initialiser """
         self.index_dir = args.index_dir
         self.args = args
-        ### Define path to embeded C++ app reindeer_socket
-        app_path = os.path.dirname(os.path.realpath(__file__))
         ### controls if Reindeer found
         if not shutil.which(REINDEER):
             sys.exit(f"Error: {REINDEER!r} not found")
@@ -182,6 +180,7 @@ class Rdeer:
         self.indexes = {}               # states of all indexes
         self.sockets = {}               # opened sockets
         self.procs = {}                 # reindeer indexes processus
+
         watcher = threading.Thread(target=self._watcher, name='watcher')
         watcher.daemon = True
         watcher.start()
@@ -201,7 +200,7 @@ class Rdeer:
             sys.exit(f"Error: directory {path!r} not found.")
         while True:
             ### find available indexes
-            found_dirs = []                                     # new indexes
+            found_dirs = []                                     # candidate indexes
             index_list = [index for index in self.indexes]      # list of current indexes
             ### find all available indexes
             for dir in os.listdir(path):
@@ -224,9 +223,10 @@ class Rdeer:
                 port = value['port']
                 if value['status'] == 'loading': # and self._port_open(port):
                     # ~ print(f"{index} IS MARKED AS 'loading' --> CHECK IF RUNNING")
+                    # Connection to index
                     self._connect_index(index, port)
 
-                if value['status'] == 'running':
+                elif value['status'] == 'running':
                     pass
                     # ~ print("TODO: ADD CHECK CONTROL")
                     ### ask to 'INDEX'.
@@ -245,6 +245,7 @@ class Rdeer:
                     ### TODO: send email"
 
             time.sleep(WATCHER_SLEEP_TIME)
+
 
     def list(self, received, addr=None):
         response = {'type': received['type'], 'status': 'success', 'data': self.indexes}
@@ -289,12 +290,13 @@ class Rdeer:
             return {'type': received['type'], 'status':'error', 'data': msg}
 
         ### CHANGE STATUS AND RETURN RESPONSE TO CLIENT
-        self.indexes[index]['status'] = 'loading'
+        print(f"{timestamp()} Index:{index} status:loading  port:{port}", file=sys.stdout)
+
         self.indexes[index]['port'] = port
         self.procs[index] = proc
         self.sockets[index] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.indexes[index]['status'] = 'loading'
 
-        print(f"{timestamp()} Index:{index} status:loading  port:{port}", file=sys.stdout)
         data = self.indexes[index]
         return {'type': received['type'], 'status':'success', 'data': data}
 

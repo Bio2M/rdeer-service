@@ -10,13 +10,11 @@ It is a companion to [Transipedia](https://transipedia.org), a web application f
 ### Prerequisite
 
 - Reindeer must be installed on indexes servers an the **reindeer_socket** binary in your $PATH
-- You need some Reindeer indexes (Stored on SSD disks to better performances).
-
+- You need some Reindeer indexes (Stored on SSD disks to better performances, otherwise build indexes with the Reindeer `--mem-query` option).
 
 ## Installation
 
 **Recommanded (pip)**
-
 
 ```
 python3 -m pip install rdeer-service
@@ -34,7 +32,7 @@ git clone https://github.com/Bio2M/rdeer-service.git
 
 ### Start the server
 
-the server must be in the same physical server than Reindeer, You can have multiple servers with Reindeer.  Each of them must have the server.
+rdeer-server requires Reindeer to be installed on the same physical machine. There can be several instances of rdeer-server running on the same server, each instance listening on a different TCP port (`-p` option). rdeer-client can query remote servers, so you can have multiple servers hosting rdeer-server/Reindeer and query them all from the same machine.
 
 ```
 rdeer-server /path/to/indexes
@@ -49,7 +47,7 @@ rdeer-server /path/to/indexes
 
 ### Use the client
 
-The client could requests remote rdeer-server servers. You can enterely manage yours Reindeer indexes with subcommand:
+The client could requests remote rdeer-server servers. You can enterely manage yours distributed Reindeer indexes with subcommand:
 
 * `rdeer list -a` to show all indexes with their status
 * `rdeer start <index-name>` to start a index (the index name is the directory hosting the index files)
@@ -101,7 +99,7 @@ Options of query subcommand (`rdeer-client query --help`):
 * `-f/--format {raw,sum,average,mean,normalize}` where
     * `raw` to get results 
     * `sum` to get sum of kmer counts
-    * `average` to get sum of kmer counts / number of kmers
+    * `mean`, `average` to get sum of kmer counts / number of kmers
     * `normalize` to get normalized counts as billion of kmers
 * `-s/--server` to request rdeer-server on remote host
 * `-p/--port` to request rdeer-server on a specified port (default: 12800)

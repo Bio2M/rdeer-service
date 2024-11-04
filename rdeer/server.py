@@ -224,7 +224,11 @@ class Rdeer:
                 if value['status'] == 'loading': # and self._port_open(port):
                     # ~ print(f"{index} IS MARKED AS 'loading' --> CHECK IF RUNNING")
                     # Connection to index
-                    self._connect_index(index, port)
+                    try:
+                        self._connect_index(index, port)
+                    except Exception:
+                        a, b, c = sys.exc_info()
+                        print(f"{a.__name__}: {b} (at line {c.tb_lineno})")
 
                 elif value['status'] == 'running':
                     pass
@@ -339,6 +343,8 @@ class Rdeer:
         ### IF REINDEER RETURN ERROR
         if not response['status'] == 'success':
             shutil.rmtree(tmp_dir, ignore_errors=True)  # delete tempory files
+            if response['data'] == "Unknow message returned by Reindeer (b'').":
+                self.indexes[index]['status'] = 'error'
             return {'type':'query', 'status':'error', 'data':response['data']}
 
         ### REINDEER OUTFILE TO tsv
@@ -347,7 +353,6 @@ class Rdeer:
             with open(outfile) as fh:
                 data = fh.read()
         except FileNotFoundError:
-            print('PAS GLOP')               # TODO: DELETE IN PROD
             time.sleep(.5)
             with open(outfile) as fh:
                 data = fh.read()
@@ -362,6 +367,8 @@ class Rdeer:
         if response['status'] == 'success':
             return {'type':'check', 'status':'success','data': f"{index} responds to queries"}
         else:
+            # ~ if response['data'] == "Unknow message returned by Reindeer (b'').":
+                # ~ self.indexes[index]['status'] = 'error'
             return {'type':'check', 'status':'error','data':response['data']}
 
 
@@ -374,11 +381,13 @@ class Rdeer:
                     self.sockets[index].send(mesg)
                     recv = self.sockets[index].recv(1024)
                 except:
-                    if self._index_is_crashed(index):
-                        print(f"{timestamp()} Error: the index {index!r} crashed during a query", file=sys.stdout)
                     return {'status':'error','data':f'Unable to query the {index!r} index.'}
                 if recv.startswith(control):
                     return {'status':'success','data':recv}
+                elif self._index_is_crashed(index):
+                    msg = f"the index {index!r} crashed during the query"
+                    print(f"{timestamp()} Error: {msg}", file=sys.stdout)
+                    return {'status':'error', 'data':msg}
                 else:
                     return {'status':'error','data':f'Unknow message returned by Reindeer ({recv!r}).'}
             else:

@@ -33,8 +33,8 @@ def main():
                     args.normalize = True
                 case "average" | "mean":
                     pass
-        ### STATUS argument is new in v2
-        if args.type == "status":
+        ### STATUS and KILL argument are new in v2
+        if args.type == "status" or args.type == "kill":
             exit_on_version_error(args.type)
 
         ### ASK_SERVER AGAIN, BUT WITH v1 ARGS STYLE
@@ -46,8 +46,8 @@ def main():
 
 def exit_on_version_error(err_opt):
     sys.exit(f"Error: rdeer-server not handle the {err_opt!r} option.\n"
-              "       Maybee you could to upgrade rdeer-server to version >= 2.0.0\n"
-              "       (don't forget to update also the indexes)")
+             f"       Maybee you could upgrade rdeer-server to version {info.VERSION} or higher.\n"
+              "       (don't forget to reload the indexes)")
 
 
 def ask_server(args):

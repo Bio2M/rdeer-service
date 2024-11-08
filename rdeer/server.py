@@ -50,8 +50,8 @@ REINDEER           = 'reindeer_socket'
 INDEX_FILES        = ["reindeer_matrix_eqc_info.txt", "reindeer_matrix_eqc_position", "reindeer_matrix_eqc"]
 BASE_TMPFILES      = '/tmp'
 WATCHER_SLEEP_TIME = 8
-ALLOWED_TYPES      = ['list', 'start', 'stop', 'query', 'check', 'status']  # REINDEER_SOCKET COMMANDS
-class RDSock_Mesg:                                                          # MESSAGES RETURNED BY REINDEER
+ALLOWED_TYPES      = ['list', 'start', 'stop', 'query', 'check', 'status', 'kill']  # REINDEER_SOCKET COMMANDS
+class RDSock_Mesg:                                                                  # MESSAGES RETURNED BY REINDEER
     HELP  = b' * HELP'
     INDEX = b'INDEX'
     QUERY = b'DONE'
@@ -142,7 +142,7 @@ def handle_client(client, addr, rdeer):
 
     ### CALL RDEER METHOD MATCHING TO THE QUERY TYPE
     if received['type'] not in ALLOWED_TYPES:
-        msg = f"Error: request type {received['type']} not handled. Please contact maintainer"
+        msg = f"Error: request type {received['type']!r} not handled. Please contact maintainer"
         response = {'type': received['type'], 'status': 'error', 'data': msg,}
         print(msg, file=sys.stderr)
         stream.send_msg(client, pickle.dumps(response))
@@ -360,6 +360,27 @@ class Rdeer:
         ### RESPONSE TO CLIENT
         return {'type':'query', 'status':response['status'], 'data':data}
 
+
+    def kill(self, received, addr=None):
+        index = received['index']
+        if index not in self.indexes:
+            return {'type':'kill', 'status':'error','data':f'Index {index!r} not found'}
+        elif self.indexes[index]['status'] == 'available':
+            return {'type':'kill', 'status':'error','data':f'Index {index!r} not started'}
+        if index in self.sockets:
+            ### kill the process and updates info
+            self.procs[index].kill()
+            self.indexes[index] = {'status':'available', 'port':None}
+            del self.sockets[index]
+            del self.procs[index]
+            msg = f"Index {index!r} is now stopped"
+            return {'type':'kill', 'status':'success','data':msg}
+        else:
+            print(f'{timestamp()} Error: type:kill index {index} found in self.indexes'
+                  f"with status {self.indexes[index]['status']!r}"
+                  "but not in self.sockets", file=sys.stderr)
+            return {'type':'kill', 'status':'error','data':f'unexpecting error to kill the {index!r} Index'}
+        
 
     def check(self, received, addr=None):
         index = received['index']

@@ -208,6 +208,10 @@ class Client:
             print(f"{self.args.outfile!r} created succesfully.")
 
 
+    def kill(self):
+        print(self.received['data'])
+
+
     def error(self):
         """ Function doc """
         print(self.received['data'])
@@ -305,12 +309,17 @@ def usage():
     # create subparser for the "start" command
     parser_start = subparsers.add_parser("start",
                         parents=[index_parser, global_parser],
-                        help="Start specifed index",
+                        help="Start the specifed index",
                         )
     # create subparser for the "stop" command
-    parser_start = subparsers.add_parser("stop",
+    parser_stop = subparsers.add_parser("stop",
                         parents=[index_parser, global_parser],
-                        help="Stop specifed index",
+                        help="Stop properly the specifed index",
+                        )
+    # create subparser for the "kill" command
+    parser_kill = subparsers.add_parser("kill",
+                        parents=[index_parser, global_parser],
+                        help="kill the specifed index",
                         )
     # arguments with special action
     parser.add_argument('-v', '--version',

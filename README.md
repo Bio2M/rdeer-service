@@ -43,6 +43,9 @@ rdeer-server /path/to/indexes
 * You can add, remove or change the name of the indexes, rdeer-server takes the changes on the fly.
 * It is recommended to start rdeer-server as a daemon, using systemd, supervisord or similar.
 
+#### notifications
+
+rdeer try to restart the indexes cyclically when error stastus
 
 
 ### Use the client
@@ -51,10 +54,12 @@ The client could requests remote rdeer-server servers. You can enterely manage y
 
 * `rdeer list -a` to show all indexes with their status
 * `rdeer start <index-name>` to start a index (the index name is the directory hosting the index files)
-* `rdeer stop <index-name>` to stop a index
-* `rdeer check <index-name>` to verify if index responding
-* `rdeer status <index-name>` to get the index status (available, loading, running, error)
-* `rdeer query <index-name> -q <query.fa>` to request an index 
+* `rdeer stop <index-name>` to stop a index.
+* `rdeer kill <index-name>` If the index crashes during loading, rdeer-server will try to restart.
+it cyclically. The stop option cannot be used during loading, so the kill option must be used.
+* `rdeer check <index-name>` to verify if index responding.
+* `rdeer status <index-name>` to get the index status (available, loading, running, error).
+* `rdeer query <index-name> -q <query.fa>` to request an index.
 
 
 **show running indexes:**

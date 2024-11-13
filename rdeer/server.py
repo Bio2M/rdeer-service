@@ -37,6 +37,7 @@ import tempfile
 import signal
 import subprocess
 import time
+import requests                 # send error message to ntfy.sh
 from datetime import datetime
 from functools import partial
 
@@ -380,7 +381,7 @@ class Rdeer:
                   f"with status {self.indexes[index]['status']!r}"
                   "but not in self.sockets", file=sys.stderr)
             return {'type':'kill', 'status':'error','data':f'unexpecting error to kill the {index!r} Index'}
-        
+
 
     def check(self, received, addr=None):
         index = received['index']
@@ -424,6 +425,9 @@ class Rdeer:
         proc = subprocess.run(f"ps -ef | grep '{cmd}'", shell=True, stdout=subprocess.PIPE)
         if proc.returncode:
             self.indexes[index]['status'] = 'error'
+            if self.args.ntfy:
+                msgerr = f"{socket.gethostname()}: rdeer-server: {index}: error status"
+                requests.post("https://ntfy.sh/bio2m-info", data=msgerr.encode())
             return True
         return False
 
@@ -471,6 +475,10 @@ def usage():
                         metavar="port",
                         default=DEFAULT_PORT,
                         type=int,
+                       )
+    parser.add_argument("-n", "--ntfy",
+                        help=f"send error notifications to https://ntfy.sh/<your-location>",
+                        metavar="ntfy location",
                        )
     parser.add_argument('-v', '--version',
                         action='version',

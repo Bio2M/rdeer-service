@@ -197,6 +197,9 @@ class Client:
 
     def query(self):
         """ If output file is not specified, print to stdout """
+        ### IF --ADD-SEQ IS SET
+        if self.args.add_seq:
+            self.__add_seq__()
         if not self.args.outfile:
             print(self.received['data'], end='')
         else:
@@ -216,6 +219,38 @@ class Client:
         """ Function doc """
         print(self.received['data'])
 
+
+    def __add_seq__(self):
+        """when --add-seq arg is specified, add sequences as second column"""
+        ### QUERY AS DICT
+        query = {}
+        query_fa = [row for row in self.args.query.split('\n') if row]
+        seq = ''
+        header = query_fa[0].split(' ')[0][1:]
+        for line in query_fa[1:]:
+            if line.startswith(">"):
+                query[header] = seq[:self.args.add_seq]
+                header = line.split(' ')[0][1:]
+                if header in query:
+                    print(f"{color.PURPLE}Warning: {header!r} is duplicated, the '-a/--add-seq' argument cannot be use.{color.END}")
+                    return
+                seq = ''
+            else:
+                seq += line.rstrip()
+        query[header] = seq[:self.args.add_seq]
+        ### ADD COLUMN TO RESULTS
+        data = [row for row in self.received['data'].split('\n') if row]
+        header = data[0].split("\t")
+        header.insert(1,"sequence")
+        data[0] = '\t'.join(header)
+        for i,row in enumerate(data[1:]):
+            row_l = row.split('\t')
+            if row_l[0] in query:
+                row_l.insert(1, query[row_l[0]])
+                data[i+1] = '\t'.join(row_l)
+            else:
+                data[i+1] = '\t'.join(row.insert(1, ""))
+        self.received["data"] = '\n'.join(data) + '\n'
 
 
 class color:
@@ -295,7 +330,15 @@ def usage():
                         choices=['raw', 'sum', 'average', 'mean', 'normalize'],
                         default='average',
                         help="counts format, note that average == mean (default: average)",
-                       )
+                        )
+    parser_query.add_argument('-a', '--add-seq',
+                        type = int,
+                        nargs = '?',
+                        const=100,
+                        help=("Insert query sequences in the second column, "
+                              "up to the specified character (default: 100)"),
+                        metavar="max-size",
+                        )
     # create subparser for the "check" command
     parser_check = subparsers.add_parser("check",
                         parents=[index_parser, global_parser],

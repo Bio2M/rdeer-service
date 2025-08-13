@@ -342,7 +342,7 @@ class Rdeer:
         if index not in self.indexes:
             return {'type':cmd_type, 'status':'error','data':f'Index {index!r} not found'}
         elif self.indexes[index]['status'] != 'running':
-            return {'type':cmd_type, 'status':'error','data':f'Index {index!r} not running'}
+            return {'type':cmd_type, 'status':'error','data':f'Index {index} has the status {self.indexes[index]["status"]!r}.'}
 
         ### CREATE TMP FILES
         tmp_dir = tempfile.mkdtemp(prefix="rdeer-", dir=BASE_TMPFILES)

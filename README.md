@@ -74,7 +74,7 @@ rdeer-client list
 rdeer-client list -a
 ```
 
-list all accessible indexes by rdeer-server, with status. Status are : 
+list all accessible indexes by rdeer-server, with status. Status are :
 
 * `available` the index is not running
 * `loading` the index is in a transitional mode until the running mode
@@ -102,7 +102,7 @@ Options of query subcommand (`rdeer-client query --help`):
 
 * `-q/--query` to send a query file at the fasta format (**required**)
 * `-f/--format {raw,sum,average,mean,normalize}` where
-    * `raw` to get results 
+    * `raw` to get results
     * `sum` to get sum of kmer counts
     * `mean`, `average` to get sum of kmer counts / number of kmers
     * `normalize` to get normalized counts as billion of kmers

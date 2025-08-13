@@ -31,7 +31,7 @@ setuptools.setup(
         ],
     },
     include_package_data = True,
-    install_requires=['packaging'],
+    install_requires=['packaging', 'requests'],
     python_requires = ">=3.10",
     licence = "GPLv3"
 )

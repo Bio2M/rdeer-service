@@ -230,7 +230,7 @@ class Client:
         for line in query_fa[1:]:
             if line.startswith(">"):
                 query[header] = seq[:self.args.add_seq]
-                header = line.split(' ')[0][1:]
+                header = line.split(' ')[0][1:51]           # 
                 if header in query:
                     print(f"{color.PURPLE}Warning: {header!r} is duplicated, the '-a/--add-seq' argument cannot be use.{color.END}")
                     return
@@ -334,9 +334,9 @@ def usage():
     parser_query.add_argument('-a', '--add-seq',
                         type = int,
                         nargs = '?',
-                        const=100,
+                        const=80,
                         help=("Insert query sequences in the second column, "
-                              "up to the specified character (default: 100)"),
+                              "up to the specified character (default: 80)"),
                         metavar="max-size",
                         )
     # create subparser for the "check" command
